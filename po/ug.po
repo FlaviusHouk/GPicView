@@ -1,0 +1,267 @@
+# Uyghur translation for gpicview.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Gheyret Kenji <gheyret@gmail.com>, 2011.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gpicview\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2012-09-23 14:36+0200\n"
+"PO-Revision-Date: 2015-08-17 01:28+0000\n"
+"Last-Translator: Anonymous Pootle User\n"
+"Language-Team: Uyghur Computer Science Association <UKIJ@yahoogroups.com>\n"
+"Language: ug\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Pootle 2.7\n"
+"X-POOTLE-MTIME: 1439774892.219510\n"
+
+#: ../src/gpicview.c:38
+msgid "[FILE]"
+msgstr "[FILE]"
+
+#: ../src/gpicview.c:40
+msgid "Print version information and exit"
+msgstr "نەشر ئۇچۇرىنى كۆرسىتىپ ئاخىرلىشىدۇ"
+
+#: ../src/gpicview.c:42
+msgid "Start slideshow"
+msgstr "تام تەسۋىرىنى باشلاش"
+
+#: ../src/main-win.c:165 ../src/main-win.c:1413 ../gpicview.desktop.in.h:1
+msgid "Image Viewer"
+msgstr "سۈرەت كۆرگۈ"
+
+#: ../src/main-win.c:267 ../src/main-win.c:1438
+msgid "Previous"
+msgstr "ئالدىنقى"
+
+#: ../src/main-win.c:268 ../src/main-win.c:1439
+msgid "Next"
+msgstr "كېيىنكى"
+
+#: ../src/main-win.c:269 ../src/main-win.c:754
+msgid "Start Slideshow"
+msgstr "تام تەسۋىرىنى باشلاش"
+
+#: ../src/main-win.c:273 ../src/main-win.c:1442
+msgid "Zoom Out"
+msgstr "كىچىكلىتىش"
+
+#: ../src/main-win.c:274 ../src/main-win.c:1443
+msgid "Zoom In"
+msgstr "چوڭايتىش"
+
+#. percent = gtk_entry_new();    // show scale (in percentage)
+#. g_signal_connect( percent, "activate", G_CALLBACK(on_percentage), mw );
+#. gtk_widget_set_size_request( percent, 45, -1 );
+#. gtk_box_pack_start( (GtkBox*)nav_bar, percent, FALSE, FALSE, 2 );
+#: ../src/main-win.c:281 ../src/main-win.c:1444
+msgid "Fit Image To Window Size"
+msgstr "سۈرەتنى كۆزنەككە ماسلاشتۇرۇش"
+
+#: ../src/main-win.c:283 ../src/main-win.c:1445
+msgid "Original Size"
+msgstr "ئەسلى چوڭلۇقى"
+
+#: ../src/main-win.c:290 ../src/main-win.c:1447
+msgid "Full Screen"
+msgstr "پۈتۈن ئېكران"
+
+#: ../src/main-win.c:294 ../src/main-win.c:1449
+msgid "Rotate Counterclockwise"
+msgstr "سائەت ئىسترېلكىسىغا قارشى يۆنىلىشتە چۆرگىلىتىش"
+
+#: ../src/main-win.c:295 ../src/main-win.c:1450
+msgid "Rotate Clockwise"
+msgstr "سائەت ئىسترېلكىسى يۆنىلىشىدە چۆرگىلىتىش"
+
+#: ../src/main-win.c:297 ../src/main-win.c:1451
+msgid "Flip Horizontal"
+msgstr "توغرا يۆنىلىشتە چۆرگىلىتىش"
+
+#: ../src/main-win.c:298 ../src/main-win.c:1452
+msgid "Flip Vertical"
+msgstr "تىك يۆنىلىشتە چۆرگىلىتىش"
+
+#: ../src/main-win.c:302 ../src/main-win.c:1454
+msgid "Open File"
+msgstr "ھۆججەت ئېچىش"
+
+#: ../src/main-win.c:303 ../src/main-win.c:1455
+msgid "Save File"
+msgstr "ھۆججەت ساقلاش"
+
+#: ../src/main-win.c:304
+msgid "Save File As"
+msgstr "باشقا ئاتتا ساقلاش"
+
+#. PTK_IMG_MENU_ITEM( N_("Save As Other Size"), GTK_STOCK_SAVE_AS, G_CALLBACK(on_save_as), GDK_A, 0 ),
+#: ../src/main-win.c:305 ../src/main-win.c:1458
+msgid "Delete File"
+msgstr "ھۆججەت ئۆچۈرۈش"
+
+#: ../src/main-win.c:308 ../src/main-win.c:1460 ../data/pref-dlg.ui.h:1
+msgid "Preferences"
+msgstr "مايىللىق"
+
+#: ../src/main-win.c:309 ../src/main-win.c:1464
+msgid "Quit"
+msgstr "ئاخىرلاشتۇرۇش"
+
+#: ../src/main-win.c:762
+msgid "Stop Slideshow"
+msgstr "تام تەسۋىرىنى توختىتىش"
+
+#: ../src/main-win.c:1303
+msgid ""
+"The file name you selected already exists.\n"
+"Do you want to overwrite existing file?\n"
+"(Warning: The quality of original image might be lost)"
+msgstr ""
+"سىز تاللىغان ھۆججەت ئاتى مەۋجۇت.\n"
+" قاپلامسىز؟\n"
+"(ئاگاھلاندۇرۇش: ئەسلى سۈرەتنىڭ سۈپىتى ئۇپراپ كېتىشى مۇمكىن)"
+
+#: ../src/main-win.c:1344
+msgid "Writing this image format is not supported."
+msgstr "بۇ سۈرەت پىچىمىنى يېزىشنى قوللىمايدۇ."
+
+#: ../src/main-win.c:1382
+msgid ""
+"Are you sure you want to delete current file?\n"
+"\n"
+"Warning: Once deleted, the file cannot be recovered."
+msgstr ""
+"نۆۋەتتىكى ھۆججەتنى راستلا ئۆچۈرەمسىز؟\n"
+"\n"
+"ئاگاھلاندۇرۇش: ئۆچۈرۈلسە ئەسلىگە كەلتۈرگىلى بولمايدۇ"
+
+#: ../src/main-win.c:1440
+msgid "Start/Stop Slideshow"
+msgstr "تام تەسۋىرىنى باشلاش/توختىتىش"
+
+#: ../src/main-win.c:1456
+msgid "Save As"
+msgstr "باشقا ئاتتا ساقلاش"
+
+#: ../src/main-win.c:1461
+msgid "Show/Hide toolbar"
+msgstr "قورال بالداقنى كۆرسەت/يوشۇر"
+
+#: ../src/main-win.c:1505
+msgid " * Refer to source code of EOG image viewer and GThumb"
+msgstr " * EOG سۈرەت كۆرگۈ ۋە GThumb نىڭ ئەسلى كودىغا قاراڭ"
+
+#. TRANSLATORS: Replace this string with your names, one name per line.
+#: ../src/main-win.c:1509
+msgid "translator-credits"
+msgstr "Gheyret Kenji <gheyret@gmail.com>"
+
+#: ../src/main-win.c:1515
+msgid "GPicView"
+msgstr "GPicView"
+
+#: ../src/main-win.c:1517
+msgid "Copyright (C) 2007 - 2011"
+msgstr "نەشر ھوقۇقى (C) 2007 - 2011"
+
+#: ../src/main-win.c:1518
+msgid "Lightweight image viewer from LXDE project"
+msgstr "LXDE قۇرۇلۇشىدىكى يېنىك سۈرەت كۆرگۈ"
+
+#: ../src/pref.c:164
+msgid ""
+"GPicView will become the default viewer for all supported image files on "
+"your system.\n"
+"(This will be done through 'xdg-mime' program)\n"
+"\n"
+"<b>Are you sure you really want to do this?</b>"
+msgstr ""
+"GPicView سىستېمىڭىز قوللايدىغان بارلىق سۈرەتلەرنىڭ كۆرگۈسى بولىدۇ.\n"
+"(بۇنى ‹xdg-mime› ئارقىلىق تاماملىغىلى بولىدۇ)\n"
+"\n"
+"<b>سىز راستلا بۇنى قىلامسىز؟</b>"
+
+#: ../src/file-dlgs.c:62
+msgid "All Supported Images"
+msgstr "بارلىق قوللايدىغان سۈرەتلەر"
+
+#: ../src/file-dlgs.c:67
+msgid "All Files"
+msgstr "بارلىق ھۆججەتلەر"
+
+#: ../src/file-dlgs.c:103
+msgid "JPEG Quality:"
+msgstr "JPEG سۈپىتى:"
+
+#: ../src/file-dlgs.c:104
+msgid ""
+"Lower quality values yield smaller file sizes,\n"
+"but the image quality will be poorer."
+msgstr ""
+"سۈپەت قىممىتى توۋەن بولسا ھۆججەت چوڭلۇقى كىچىك بولىدۇ،\n"
+"بىراق سۈرەتنىڭ سۈپىتىمۇ توۋەن بولىدۇ."
+
+#: ../src/file-dlgs.c:121
+msgid "PNG Compression Level:"
+msgstr "PNG پرېسلاش دەرىجىسى:"
+
+#: ../src/file-dlgs.c:122
+msgid ""
+"Higher compression levels yield smaller file sizes,\n"
+"but takes more time to do the compression."
+msgstr ""
+"پرېسلاش دەرىجىسى يۇقىرى بولسا ھۆججەت چوڭلۇقى كىچىك بولىدۇ،\n"
+"بىراق پرېسلاش ئۈچۈن جىقراق ۋاقىت كېتىدۇ."
+
+#: ../gpicview.desktop.in.h:2
+msgid "View your images easily"
+msgstr "سۈرەتنى ئوڭايلا كۆرگىلى بولىدۇ"
+
+#: ../data/pref-dlg.ui.h:2
+msgid "Ask before saving images"
+msgstr "سۈرەتلەرنى ساقلاشتىن ئاۋۋال سورىسۇن"
+
+#: ../data/pref-dlg.ui.h:3
+msgid "Ask before deleting images"
+msgstr "سۈرەتلەرنى ئۆچۈرۈشتىن ئاۋۋال سورىسۇن"
+
+#: ../data/pref-dlg.ui.h:4
+msgid "Automatically save rotated images"
+msgstr "چۆرگىلىتىلگەن سۈرەتلەرنى ئاپتوماتىك ساقلىسۇن"
+
+#: ../data/pref-dlg.ui.h:5
+msgid ""
+"Rotate JPEG file by changing EXIF orientation value\n"
+"(only if EXIF orientation tag exists)"
+msgstr ""
+"JPEG ھۆججىتىنى EXIF دېگەن يۆنىلىش قىممىتىنى ئۆزگەرتىش ئارقىلىق چۆرگىلىتىش\n"
+"(پەقەت EXIF  دېگەن يۆنىلىش قىممىتى مەۋجۇت بولسا)"
+
+#: ../data/pref-dlg.ui.h:7
+msgid "Slideshow interval"
+msgstr "تام تەسۋىرىنىڭ ئىنتېرۋالى"
+
+#: ../data/pref-dlg.ui.h:8
+msgid "sec"
+msgstr "سېكۇنت"
+
+#: ../data/pref-dlg.ui.h:9
+msgid "Make GPicView the default viewer for images"
+msgstr "كۆڭۈلدىكى سۈرەت كۆرگۈ بولسۇن(GPicView)"
+
+#: ../data/pref-dlg.ui.h:10
+msgid "Normal:"
+msgstr "نورمال:"
+
+#: ../data/pref-dlg.ui.h:11
+msgid "Fullscreen:"
+msgstr "تولۇق ئېكران:"
+
+#: ../data/pref-dlg.ui.h:12
+msgid "<b>Background colors</b>"
+msgstr "<b>تەگلىك رەڭلىرى</b>"
