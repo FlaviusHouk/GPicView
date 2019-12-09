@@ -372,6 +372,12 @@ static void update_btns(MainWin* mw)
 
 gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom )
 {
+    if(file_path == NULL)
+    {
+        main_win_show_error(mw, _("Path is wrong. Cannot open file."));
+        return FALSE;
+    }
+
     if (g_file_test(file_path, G_FILE_TEST_IS_DIR))
     {
         image_list_open_dir( mw->img_list, file_path, NULL );
