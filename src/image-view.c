@@ -282,7 +282,8 @@ void image_view_paint( ImageView* iv, cairo_t *cr )
 gboolean on_expose_event( GtkWidget* widget, GdkEventExpose* evt )
 {
     ImageView* iv = (ImageView*)widget;
-    if( GTK_WIDGET_MAPPED (widget) )
+
+    if( gtk_widget_get_mapped (widget) )
         image_view_paint( iv, evt );
     return FALSE;
 }
@@ -358,35 +359,30 @@ void image_view_set_scale( ImageView* iv, gdouble new_scale, GdkInterpType type 
 {
     if( new_scale == iv->scale )
         return;
-//    gdouble factor = new_scale / iv->scale;
+    
+    gdouble initZoom = iv->scale;
+    gint xPos, yPos;
+    gtk_widget_get_pointer(GTK_WIDGET(iv), &xPos, &yPos);
+    
+    //g_print("Mouse: %d,%d\n", xPos, yPos);
+    gdouble oldRelativePositionX =  xPos * 1.0 / iv->img_area.width; 
+    gdouble oldRelativePositionY = yPos * 1.0 / iv->img_area.height;
+    gdouble visibleAreaX = xPos - gtk_adjustment_get_value(iv->hadj);
+    gdouble visibleAreaY = yPos - gtk_adjustment_get_value(iv->vadj);
+
     iv->scale = new_scale;
     if( iv->pix )
     {
         calc_image_area( iv );
-        gtk_widget_queue_resize( (GtkWidget*)iv );
-//        gtk_widget_queue_draw( (GtkWidget*)iv );
+        
+        gdouble newPosX = oldRelativePositionX * iv->img_area.width - visibleAreaX;
+        gdouble newPosY = oldRelativePositionY * iv->img_area.height - visibleAreaY;
+        //g_print("Adjustment: %f,%f\n\n\n", newPosX, newPosY);
 
-/*
-    // adjust scroll bars
-        int vis_w = ((GtkWidget*)iv)->allocation.width;
-        if( hadj && vis_w < img_area.width )
-        {
-            hadj->upper = img_area.width;
-            hadj->page_size = vis_w;
-            gdouble new_w = (hadj->value + vis_w / 2) * factor - vis_w/2;
-            hadj->value = CLAMP(  new_w, 0, hadj->upper - hadj->page_size );
-            gtk_adjustment_value_changed( hadj );
-        }
-        int vis_h = ((GtkWidget*)iv)->allocation.height;
-        if( vadj && vis_h < img_area.height )
-        {
-            vadj->upper = img_area.height;
-            vadj->page_size = vis_h;
-            gdouble new_h = (vadj->value + vis_h / 2) * factor - vis_h/2;
-            vadj->value = CLAMP(  new_h, 0, vadj->upper - vadj->page_size );
-            gtk_adjustment_value_changed( vadj );
-        }
-*/
+        iv->hadj->value = newPosX > 0 ? newPosX : 0;
+        iv->vadj->value = newPosY > 0 ? newPosY : 0;
+
+        gtk_widget_queue_resize( (GtkWidget*)iv );
     }
 }
 
@@ -495,8 +491,8 @@ void paint( ImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type )
             src_w = gdk_pixbuf_get_width( iv->pix ) - src_x;
         if( src_y + src_h > gdk_pixbuf_get_height( iv->pix ) )
             src_h = gdk_pixbuf_get_height( iv->pix ) - src_y;
-        //g_debug("orig src: x=%d, y=%d, w=%d, h=%d",
-        //        src_x, src_y, src_w, src_h );
+        /*g_print("orig src: x=%d, y=%d, w=%d, h=%d\n",
+                src_x, src_y, src_w, src_h );*/
 
         if ((src_w > 0) && (src_h > 0))
         {
