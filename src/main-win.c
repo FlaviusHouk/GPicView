@@ -663,6 +663,8 @@ void on_zoom_fit( GtkToggleButton* btn, MainWin* mw )
 {
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(btn)))
         main_win_set_zoom_mode(mw, ZOOM_FIT);
+
+    main_win_update_zoom_buttons_state(mw);
 }
 
 void on_full_screen( GtkWidget* btn, MainWin* mw )
@@ -689,6 +691,8 @@ void on_orig_size( GtkToggleButton* btn, MainWin* mw )
 
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(btn)))
         main_win_set_zoom_mode(mw, ZOOM_ORIG);
+
+    main_win_update_zoom_buttons_state(mw);
 }
 
 void on_prev( GtkWidget* btn, MainWin* mw )
