@@ -372,6 +372,12 @@ static void update_btns(MainWin* mw)
 
 gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom )
 {
+    if(file_path == NULL)
+    {
+        main_win_show_error(mw, _("Path is wrong. Cannot open file."));
+        return FALSE;
+    }
+
     if (g_file_test(file_path, G_FILE_TEST_IS_DIR))
     {
         image_list_open_dir( mw->img_list, file_path, NULL );
@@ -657,6 +663,8 @@ void on_zoom_fit( GtkToggleButton* btn, MainWin* mw )
 {
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(btn)))
         main_win_set_zoom_mode(mw, ZOOM_FIT);
+
+    main_win_update_zoom_buttons_state(mw);
 }
 
 void on_full_screen( GtkWidget* btn, MainWin* mw )
@@ -683,6 +691,8 @@ void on_orig_size( GtkToggleButton* btn, MainWin* mw )
 
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(btn)))
         main_win_set_zoom_mode(mw, ZOOM_ORIG);
+
+    main_win_update_zoom_buttons_state(mw);
 }
 
 void on_prev( GtkWidget* btn, MainWin* mw )

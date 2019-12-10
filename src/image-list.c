@@ -170,6 +170,9 @@ void image_list_close( ImageList* il )
 
 static gboolean image_list_is_file_supported( const char* name )
 {
+    if(!g_file_test(name, G_FILE_TEST_EXISTS))
+        return FALSE;
+
     const char* ext = strrchr( name, '.' );
     if( ! ext )
         return FALSE;
