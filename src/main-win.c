@@ -173,20 +173,13 @@ void main_win_init( MainWin*mw )
     }
     gtk_window_set_default_size( (GtkWindow*)mw, 640, 480 );
 
-#if GTK_CHECK_VERSION(3, 0, 0)
     GtkWidget* box = gtk_box_new( GTK_ORIENTATION_VERTICAL, 0 );
-#else
-    GtkWidget* box = gtk_vbox_new( FALSE, 0 );
-#endif
     gtk_container_add( (GtkContainer*)mw, box);
 
     // image area
     mw->evt_box = gtk_event_box_new();
-#if GTK_CHECK_VERSION(2, 18, 0)
     gtk_widget_set_can_focus(mw->evt_box,TRUE);
-#else
-    GTK_WIDGET_SET_FLAGS( mw->evt_box, GTK_CAN_FOCUS );
-#endif
+
     gtk_widget_add_events( mw->evt_box,
                            GDK_POINTER_MOTION_MASK|GDK_BUTTON_PRESS_MASK|
                            GDK_BUTTON_RELEASE_MASK|GDK_SCROLL_MASK );
@@ -196,20 +189,22 @@ void main_win_init( MainWin*mw )
     g_signal_connect( mw->evt_box, "scroll-event", G_CALLBACK(on_scroll_event), mw );
     // Set bg color to white
 
-    gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg );
+    //gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg );
+    gtk_widget_set_name(mw->evt_box, "ImageArea");
+
+    GtkStyleContext* context = gtk_widget_get_style_context(mw->evt_box);
+
+    GtkCssProvider* provider = gtk_css_provider_new();
+    GFile* file = g_file_new_for_path( PACKAGE_DATA_DIR "/styles.css");
+    GError* err = NULL;
+    gtk_css_provider_load_from_file(provider, file, &err);
+
+    gtk_style_context_add_provider(context, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_assert(!err);
 
     mw->img_view = image_view_new();
     gtk_container_add( (GtkContainer*)mw->evt_box, (GtkWidget*)mw->img_view);
 
-#if GTK_CHECK_VERSION(3, 0, 0)
-#else
-    const char scroll_style[]=
-            "style \"gpicview-scroll\" {"
-            "GtkScrolledWindow::scrollbar-spacing=0"
-            "}"
-            "class \"GtkScrolledWindow\" style \"gpicview-scroll\"";
-    gtk_rc_parse_string( scroll_style );
-#endif
     mw->scroll = gtk_scrolled_window_new( NULL, NULL );
     g_signal_connect(G_OBJECT(mw->scroll), "size-allocate", G_CALLBACK(on_scroll_size_allocate), (gpointer) mw);
     gtk_scrolled_window_set_shadow_type( (GtkScrolledWindow*)mw->scroll, GTK_SHADOW_NONE );
@@ -217,22 +212,13 @@ void main_win_init( MainWin*mw )
                                     GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     GtkAdjustment *hadj, *vadj;
     hadj = gtk_scrolled_window_get_hadjustment((GtkScrolledWindow*)mw->scroll);
-#if GTK_CHECK_VERSION(2, 14, 0)
     gtk_adjustment_set_page_increment(hadj, 10);
-#else
-    hadj->page_increment = 10;
-#endif
-    gtk_adjustment_changed(hadj);
+
     vadj = gtk_scrolled_window_get_vadjustment((GtkScrolledWindow*)mw->scroll);
-#if GTK_CHECK_VERSION(2, 14, 0)
     gtk_adjustment_set_page_increment(vadj, 10);
-#else
-    vadj->page_increment = 10;
-#endif
-    gtk_adjustment_changed(vadj);
 
     image_view_set_adjustments( IMAGE_VIEW(mw->img_view), hadj, vadj );    // dirty hack :-(
-    gtk_scrolled_window_add_with_viewport( (GtkScrolledWindow*)mw->scroll, mw->evt_box );
+    gtk_container_add ( GTK_CONTAINER (mw->scroll), mw->evt_box );
     GtkWidget* viewport = gtk_bin_get_child( (GtkBin*)mw->scroll );
     gtk_viewport_set_shadow_type( (GtkViewport*)viewport, GTK_SHADOW_NONE );
     gtk_container_set_border_width( (GtkContainer*)viewport, 0 );
@@ -269,34 +255,43 @@ void main_win_init( MainWin*mw )
 
 void create_nav_bar( MainWin* mw, GtkWidget* box )
 {
-    mw->nav_bar = gtk_hbox_new( FALSE, 0 );
+    mw->nav_bar = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, 0 );
+    gtk_widget_set_name(mw->nav_bar, "NavBar");
 
-    add_nav_btn( mw, GTK_STOCK_GO_BACK, _("Previous"), G_CALLBACK(on_prev), FALSE );
-    add_nav_btn( mw, GTK_STOCK_GO_FORWARD, _("Next"), G_CALLBACK(on_next), FALSE );
-    mw->btn_play_stop = add_nav_btn_img( mw, GTK_STOCK_MEDIA_PLAY, _("Start Slideshow"), G_CALLBACK(on_slideshow), TRUE, &mw->img_play_stop );
+    add_nav_btn( mw, "go-previous", _("Previous"), G_CALLBACK(on_prev), FALSE );
+    add_nav_btn( mw, "go-next", _("Next"), G_CALLBACK(on_next), FALSE );
+    mw->btn_play_stop = add_nav_btn_img( mw, "media-playback-start", _("Start Slideshow"), G_CALLBACK(on_slideshow), TRUE, &mw->img_play_stop );
 
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, gtk_vseparator_new(), FALSE, FALSE, 0 );
+    gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
+                         gtk_separator_new(GTK_ORIENTATION_VERTICAL), 
+                         FALSE, 
+                         FALSE, 
+                         0 );
 
-    add_nav_btn( mw, GTK_STOCK_ZOOM_OUT, _("Zoom Out"), G_CALLBACK(on_zoom_out), FALSE );
-    add_nav_btn( mw, GTK_STOCK_ZOOM_IN, _("Zoom In"), G_CALLBACK(on_zoom_in), FALSE );
+    add_nav_btn( mw, "zoom-out", _("Zoom Out"), G_CALLBACK(on_zoom_out), FALSE );
+    add_nav_btn( mw, "zoom-in", _("Zoom In"), G_CALLBACK(on_zoom_in), FALSE );
 
 //    percent = gtk_entry_new();    // show scale (in percentage)
 //    g_signal_connect( percent, "activate", G_CALLBACK(on_percentage), mw );
 //    gtk_widget_set_size_request( percent, 45, -1 );
 //    gtk_box_pack_start( (GtkBox*)nav_bar, percent, FALSE, FALSE, 2 );
 
-    mw->btn_fit = add_nav_btn( mw, GTK_STOCK_ZOOM_FIT, _("Fit Image To Window Size"),
+    mw->btn_fit = add_nav_btn( mw, "zoom-fit-best", _("Fit Image To Window Size"),
                            G_CALLBACK(on_zoom_fit), TRUE );
-    mw->btn_orig = add_nav_btn( mw, GTK_STOCK_ZOOM_100, _("Original Size"),
+    mw->btn_orig = add_nav_btn( mw, "zoom-original", _("Original Size"),
                            G_CALLBACK(on_orig_size), TRUE );
     gtk_toggle_button_set_active( (GtkToggleButton*)mw->btn_fit, TRUE );
 
 #ifndef GTK_STOCK_FULLSCREEN
 #define GTK_STOCK_FULLSCREEN    "gtk-fullscreen"
 #endif
-    add_nav_btn( mw, GTK_STOCK_FULLSCREEN, _("Full Screen"), G_CALLBACK(on_full_screen), FALSE );   // gtk+ 2.8+
+    add_nav_btn( mw, "view-fullscreen", _("Full Screen"), G_CALLBACK(on_full_screen), FALSE );   // gtk+ 2.8+
 
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, gtk_vseparator_new(), FALSE, FALSE, 0 );
+    gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
+                        gtk_separator_new(GTK_ORIENTATION_VERTICAL), 
+                        FALSE, 
+                        FALSE, 
+                        0 );
 
     mw->btn_rotate_ccw = add_nav_btn( mw, "object-rotate-left", _("Rotate Counterclockwise"), G_CALLBACK(on_rotate_counterclockwise), FALSE );
     mw->btn_rotate_cw = add_nav_btn( mw, "object-rotate-right", _("Rotate Clockwise"), G_CALLBACK(on_rotate_clockwise), FALSE );
@@ -304,20 +299,22 @@ void create_nav_bar( MainWin* mw, GtkWidget* box )
     mw->btn_flip_h = add_nav_btn( mw, "object-flip-horizontal", _("Flip Horizontal"), G_CALLBACK(on_flip_horizontal), FALSE );
     mw->btn_flip_v = add_nav_btn( mw, "object-flip-vertical", _("Flip Vertical"), G_CALLBACK(on_flip_vertical), FALSE );
 
+    gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
+                        gtk_separator_new(GTK_ORIENTATION_VERTICAL), 
+                        FALSE, 
+                        FALSE, 
+                        0 );
+
+    add_nav_btn( mw, "document-open", _("Open File"), G_CALLBACK(on_open), FALSE );
+    add_nav_btn( mw, "document-save", _("Save File"), G_CALLBACK(on_save), FALSE );
+    add_nav_btn( mw, "document-save-as", _("Save File As"), G_CALLBACK(on_save_as), FALSE );
+    add_nav_btn( mw, "edit-delete", _("Delete File"), G_CALLBACK(on_delete), FALSE );
+
     gtk_box_pack_start( (GtkBox*)mw->nav_bar, gtk_vseparator_new(), FALSE, FALSE, 0 );
+    add_nav_btn( mw, "preferences-system", _("Preferences"), G_CALLBACK(on_preference), FALSE );
+    add_nav_btn( mw, "application-exit", _("Quit"), G_CALLBACK(on_quit), FALSE );
 
-    add_nav_btn( mw, GTK_STOCK_OPEN, _("Open File"), G_CALLBACK(on_open), FALSE );
-    add_nav_btn( mw, GTK_STOCK_SAVE, _("Save File"), G_CALLBACK(on_save), FALSE );
-    add_nav_btn( mw, GTK_STOCK_SAVE_AS, _("Save File As"), G_CALLBACK(on_save_as), FALSE );
-    add_nav_btn( mw, GTK_STOCK_DELETE, _("Delete File"), G_CALLBACK(on_delete), FALSE );
-
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, gtk_vseparator_new(), FALSE, FALSE, 0 );
-    add_nav_btn( mw, GTK_STOCK_PREFERENCES, _("Preferences"), G_CALLBACK(on_preference), FALSE );
-    add_nav_btn( mw, GTK_STOCK_QUIT, _("Quit"), G_CALLBACK(on_quit), FALSE );
-
-    GtkWidget* align = gtk_alignment_new( 0.5, 0, 0, 0 );
-    gtk_container_add( (GtkContainer*)align, mw->nav_bar );
-    gtk_box_pack_start( (GtkBox*)box, align, FALSE, TRUE, 2 );
+    gtk_box_pack_start( (GtkBox*)box, mw->nav_bar, FALSE, TRUE, 2 );
 }
 
 gboolean on_delete_event( GtkWidget* widget, GdkEventAny* evt )
@@ -383,8 +380,11 @@ gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom )
         image_list_open_dir( mw->img_list, file_path, NULL );
         image_list_sort_by_name( mw->img_list, GTK_SORT_DESCENDING );
         if (image_list_get_first(mw->img_list))
-            main_win_open(mw, image_list_get_current_file_path(mw->img_list), zoom);
-        return;
+        {
+            return main_win_open(mw, image_list_get_current_file_path(mw->img_list), zoom);
+        }
+        
+        return FALSE;
     }
 
 
@@ -450,9 +450,14 @@ gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom )
             gtk_scrolled_window_set_policy( (GtkScrolledWindow*)mw->scroll, GTK_POLICY_NEVER, GTK_POLICY_NEVER );
             gtk_widget_set_size_request( (GtkWidget*)mw->img_view, w, h );
             GtkRequisition req;
-            gtk_widget_size_request ( (GtkWidget*)mw, &req );
-            if( req.width < 640 )   req.width = 640;
-            if( req.height < 480 )   req.height = 480;
+            gtk_widget_get_preferred_size(GTK_WIDGET(mw), NULL, &req);
+
+            if( req.width < 640 )   
+                req.width = 640;
+            
+            if( req.height < 480 )   
+                req.height = 480;
+
             gtk_window_resize( (GtkWindow*)mw, req.width, req.height );
             gtk_widget_set_size_request( (GtkWidget*)mw->img_view, -1, -1 );
             gtk_scrolled_window_set_policy( (GtkScrolledWindow*)mw->scroll, GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC );
@@ -460,7 +465,9 @@ gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom )
             mw->scale = 1.0;
         }
         else
+        {
             mw->zoom_mode = ZOOM_FIT;
+        }
     }
 
     if( mw->zoom_mode == ZOOM_FIT )

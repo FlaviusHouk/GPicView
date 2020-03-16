@@ -379,8 +379,8 @@ void image_view_set_scale( ImageView* iv, gdouble new_scale, GdkInterpType type 
         gdouble newPosY = oldRelativePositionY * iv->img_area.height - visibleAreaY;
         //g_print("Adjustment: %f,%f\n\n\n", newPosX, newPosY);
 
-        iv->hadj->value = newPosX > 0 ? newPosX : 0;
-        iv->vadj->value = newPosY > 0 ? newPosY : 0;
+        gtk_adjustment_set_value(iv->hadj, newPosX > 0 ? newPosX : 0);
+        gtk_adjustment_set_value(iv->vadj, newPosY > 0 ? newPosY : 0);
 
         gtk_widget_queue_resize( (GtkWidget*)iv );
     }
