@@ -199,8 +199,7 @@ void main_win_init( MainWin*mw )
     GError* err = NULL;
     gtk_css_provider_load_from_file(provider, file, &err);
 
-    gtk_style_context_add_provider(context, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    g_assert(!err);
+    gtk_style_context_add_provider(context, GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
     mw->img_view = image_view_new();
     gtk_container_add( (GtkContainer*)mw->evt_box, (GtkWidget*)mw->img_view);
@@ -282,9 +281,6 @@ void create_nav_bar( MainWin* mw, GtkWidget* box )
                            G_CALLBACK(on_orig_size), TRUE );
     gtk_toggle_button_set_active( (GtkToggleButton*)mw->btn_fit, TRUE );
 
-#ifndef GTK_STOCK_FULLSCREEN
-#define GTK_STOCK_FULLSCREEN    "gtk-fullscreen"
-#endif
     add_nav_btn( mw, "view-fullscreen", _("Full Screen"), G_CALLBACK(on_full_screen), FALSE );   // gtk+ 2.8+
 
     gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
@@ -310,7 +306,12 @@ void create_nav_bar( MainWin* mw, GtkWidget* box )
     add_nav_btn( mw, "document-save-as", _("Save File As"), G_CALLBACK(on_save_as), FALSE );
     add_nav_btn( mw, "edit-delete", _("Delete File"), G_CALLBACK(on_delete), FALSE );
 
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, gtk_vseparator_new(), FALSE, FALSE, 0 );
+    gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
+                        gtk_separator_new(GTK_ORIENTATION_VERTICAL), 
+                        FALSE, 
+                        FALSE, 
+                        0 );
+
     add_nav_btn( mw, "preferences-system", _("Preferences"), G_CALLBACK(on_preference), FALSE );
     add_nav_btn( mw, "application-exit", _("Quit"), G_CALLBACK(on_quit), FALSE );
 
@@ -568,15 +569,23 @@ void on_size_allocate( GtkWidget* widget, GtkAllocation    *allocation )
 gboolean on_win_state_event( GtkWidget* widget, GdkEventWindowState* state )
 {
     MainWin* mw = (MainWin*)widget;
+    GtkStyleContext* context = gtk_widget_get_style_context(mw->evt_box);
     if( (state->new_window_state & GDK_WINDOW_STATE_FULLSCREEN) != 0 )
     {
-        gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg_full );
+        gtk_style_context_remove_class(context, "ImageArea");
+        gtk_style_context_add_class(context, "ImageAreaFullScreen");
+
+        //gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg_full );
+
         gtk_widget_hide( gtk_widget_get_parent(mw->nav_bar) );
         mw->full_screen = TRUE;
     }
     else
     {
-        gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg );
+        gtk_style_context_remove_class(context, "ImageArea");
+        gtk_style_context_add_class(context, "ImageArea");
+
+        //gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg );
         if (pref.show_toolbar)
             gtk_widget_show( gtk_widget_get_parent(mw->nav_bar) );
         mw->full_screen = FALSE;
@@ -631,11 +640,7 @@ GtkWidget* add_nav_btn( MainWin* mw, const char* icon, const char* tip, GCallbac
 
 GtkWidget* add_nav_btn_img( MainWin* mw, const char* icon, const char* tip, GCallback cb, gboolean toggle, GtkWidget** ret_img )
 {
-    GtkWidget* img;
-    if( g_str_has_prefix(icon, "gtk-") )
-        img = gtk_image_new_from_stock(icon, GTK_ICON_SIZE_SMALL_TOOLBAR);
-    else
-        img = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_SMALL_TOOLBAR);
+    GtkWidget* img = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_SMALL_TOOLBAR);
     GtkWidget* btn;
     if( G_UNLIKELY(toggle) )
     {
@@ -647,9 +652,9 @@ GtkWidget* add_nav_btn_img( MainWin* mw, const char* icon, const char* tip, GCal
         btn = gtk_button_new();
         g_signal_connect( btn, "clicked", cb, mw );
     }
-    gtk_button_set_relief( (GtkButton*)btn, GTK_RELIEF_NONE );
-    gtk_button_set_focus_on_click( (GtkButton*)btn, FALSE );
-    gtk_container_add( (GtkContainer*)btn, img );
+    gtk_button_set_relief( GTK_BUTTON(btn), GTK_RELIEF_NONE );
+    gtk_widget_set_focus_on_click( GTK_WIDGET(btn), FALSE );
+    gtk_container_add( GTK_CONTAINER(btn), img );
     gtk_widget_set_tooltip_text( btn, tip );
     gtk_box_pack_start( (GtkBox*)mw->nav_bar, btn, FALSE, FALSE, 0 );
     *ret_img = img;
@@ -774,7 +779,7 @@ void on_slideshow( GtkToggleButton* btn, MainWin* mw )
     {
         mw->slideshow_running = FALSE;
         mw->slideshow_cancelled = FALSE;
-        gtk_image_set_from_stock( GTK_IMAGE(mw->img_play_stop), GTK_STOCK_MEDIA_PLAY, GTK_ICON_SIZE_SMALL_TOOLBAR );
+        gtk_image_set_from_icon_name( GTK_IMAGE(mw->img_play_stop), "media-playback-start", GTK_ICON_SIZE_SMALL_TOOLBAR );
         gtk_widget_set_tooltip_text( GTK_WIDGET(btn), _("Start Slideshow") );
         gtk_toggle_button_set_active( btn, FALSE );
     }
@@ -782,7 +787,7 @@ void on_slideshow( GtkToggleButton* btn, MainWin* mw )
     {
         gtk_toggle_button_set_active( btn, TRUE );
         mw->slideshow_running = TRUE;
-        gtk_image_set_from_stock( GTK_IMAGE(mw->img_play_stop), GTK_STOCK_MEDIA_STOP, GTK_ICON_SIZE_SMALL_TOOLBAR );
+        gtk_image_set_from_icon_name( GTK_IMAGE(mw->img_play_stop), "media-playback-stop", GTK_ICON_SIZE_SMALL_TOOLBAR );
         gtk_widget_set_tooltip_text( GTK_WIDGET(btn), _("Stop Slideshow") );
         mw->slide_timeout = g_timeout_add(1000 * pref.slide_delay, (GSourceFunc) next_slide, mw);
     }
@@ -973,11 +978,7 @@ void on_quit( GtkWidget* btn, MainWin* mw )
 
 gboolean on_button_press( GtkWidget* widget, GdkEventButton* evt, MainWin* mw )
 {
-#if GTK_CHECK_VERSION(2, 14, 0)
     if( ! gtk_widget_has_focus( widget ) )
-#else
-    if( ! GTK_WIDGET_HAS_FOCUS( widget ) )
-#endif
         gtk_widget_grab_focus( widget );
 
     if( evt->type == GDK_BUTTON_PRESS)
@@ -987,7 +988,11 @@ gboolean on_button_press( GtkWidget* widget, GdkEventButton* evt, MainWin* mw )
             if( ! mw->pix )
                 return FALSE;
             mw->dragging = TRUE;
-            gtk_widget_get_pointer( (GtkWidget*)mw, &mw->drag_old_x ,&mw->drag_old_y );
+            gdk_window_get_device_position ( gtk_widget_get_window(GTK_WIDGET(mw)), 
+                                             evt->device,
+                                             &mw->drag_old_x,
+                                             &mw->drag_old_y,
+                                             NULL );
             gdk_window_set_cursor( gtk_widget_get_window(widget), mw->hand_cursor );
         }
         else if( evt->button == 3 )   // right button
@@ -1008,7 +1013,11 @@ gboolean on_mouse_move( GtkWidget* widget, GdkEventMotion* evt, MainWin* mw )
         return FALSE;
 
     int cur_x, cur_y;
-    gtk_widget_get_pointer( (GtkWidget*)mw, &cur_x ,&cur_y );
+    gdk_window_get_device_position (  gtk_widget_get_window(GTK_WIDGET(mw)),
+                                      evt->device, 
+                                      &cur_x,
+                                      &cur_y,
+                                      NULL );
 
     int dx = (mw->drag_old_x - cur_x);
     int dy = (mw->drag_old_y - cur_y);
@@ -1018,17 +1027,11 @@ gboolean on_mouse_move( GtkWidget* widget, GdkEventMotion* evt, MainWin* mw )
     vadj = gtk_scrolled_window_get_vadjustment((GtkScrolledWindow*)mw->scroll);
 
     GtkRequisition req;
-    gtk_widget_size_request( (GtkWidget*)mw->img_view, &req );
+    gtk_widget_get_preferred_size( (GtkWidget*)mw->img_view, NULL, &req );
 
-#if GTK_CHECK_VERSION(2, 14, 0)
     gdouble hadj_page_size = gtk_adjustment_get_page_size(hadj);
     gdouble hadj_lower = gtk_adjustment_get_lower(hadj);
     gdouble hadj_upper = gtk_adjustment_get_upper(hadj);
-#else
-    gdouble hadj_page_size = hadj->page_size;
-    gdouble hadj_lower = hadj->lower;
-    gdouble hadj_upper = hadj->upper;
-#endif
 
     if( ABS(dx) > 4 )
     {
@@ -1243,26 +1246,16 @@ void main_win_center_image( MainWin* mw )
     vadj = gtk_scrolled_window_get_vadjustment((GtkScrolledWindow*)mw->scroll);
 
     GtkRequisition req;
-    gtk_widget_size_request( (GtkWidget*)mw->img_view, &req );
+    gtk_widget_get_preferred_size( (GtkWidget*)mw->img_view, NULL, &req );
 
-#if GTK_CHECK_VERSION(2, 14, 0)
     gdouble hadj_page_size = gtk_adjustment_get_page_size(hadj);
     gdouble hadj_upper = gtk_adjustment_get_upper(hadj);
-#else
-    gdouble hadj_page_size = hadj->page_size;
-    gdouble hadj_upper = hadj->upper;
-#endif
 
     if( req.width > hadj_page_size )
         gtk_adjustment_set_value(hadj, ( hadj_upper - hadj_page_size ) / 2 );
 
-#if GTK_CHECK_VERSION(2, 14, 0)
     gdouble vadj_page_size = gtk_adjustment_get_page_size(vadj);
     gdouble vadj_upper = gtk_adjustment_get_upper(vadj);
-#else
-    gdouble vadj_page_size = vadj->page_size;
-    gdouble vadj_upper = vadj->upper;
-#endif
 
     if( req.height > vadj_page_size )
         gtk_adjustment_set_value(vadj, ( vadj_upper - vadj_page_size ) / 2 );
@@ -1459,33 +1452,33 @@ void show_popup_menu( MainWin* mw, GdkEventButton* evt )
 {
     static PtkMenuItemEntry menu_def[] =
     {
-        PTK_IMG_MENU_ITEM( N_( "Previous" ), GTK_STOCK_GO_BACK, on_prev, GDK_leftarrow, 0 ),
-        PTK_IMG_MENU_ITEM( N_( "Next" ), GTK_STOCK_GO_FORWARD, on_next, GDK_rightarrow, 0 ),
-        PTK_IMG_MENU_ITEM( N_( "Start/Stop Slideshow" ), GTK_STOCK_MEDIA_PLAY, on_slideshow_menu, GDK_W, 0 ),
+        PTK_IMG_MENU_ITEM( N_( "Previous" ), "go-previous", on_prev, GDK_leftarrow, 0 ),
+        PTK_IMG_MENU_ITEM( N_( "Next" ), "go-next", on_next, GDK_rightarrow, 0 ),
+        PTK_IMG_MENU_ITEM( N_( "Start/Stop Slideshow" ), "media-playback-start", on_slideshow_menu, GDK_W, 0 ),
         PTK_SEPARATOR_MENU_ITEM,
-        PTK_IMG_MENU_ITEM( N_( "Zoom Out" ), GTK_STOCK_ZOOM_OUT, on_zoom_out, GDK_minus, 0 ),
-        PTK_IMG_MENU_ITEM( N_( "Zoom In" ), GTK_STOCK_ZOOM_IN, on_zoom_in, GDK_plus, 0 ),
-        PTK_IMG_MENU_ITEM( N_( "Fit Image To Window Size" ), GTK_STOCK_ZOOM_FIT, on_zoom_fit_menu, GDK_F, 0 ),
-        PTK_IMG_MENU_ITEM( N_( "Original Size" ), GTK_STOCK_ZOOM_100, on_orig_size_menu, GDK_G, 0 ),
+        PTK_IMG_MENU_ITEM( N_( "Zoom Out" ), "zoom-out", on_zoom_out, GDK_minus, 0 ),
+        PTK_IMG_MENU_ITEM( N_( "Zoom In" ), "zoom-in", on_zoom_in, GDK_plus, 0 ),
+        PTK_IMG_MENU_ITEM( N_( "Fit Image To Window Size" ), "zoom-fit-best", on_zoom_fit_menu, GDK_F, 0 ),
+        PTK_IMG_MENU_ITEM( N_( "Original Size" ), "zoom-original", on_orig_size_menu, GDK_G, 0 ),
         PTK_SEPARATOR_MENU_ITEM,
-        PTK_IMG_MENU_ITEM( N_( "Full Screen" ), GTK_STOCK_FULLSCREEN, on_full_screen, GDK_F11, 0 ),
+        PTK_IMG_MENU_ITEM( N_( "Full Screen" ), "view-fullscreen", on_full_screen, GDK_F11, 0 ),
         PTK_SEPARATOR_MENU_ITEM,
         PTK_IMG_MENU_ITEM( N_( "Rotate Counterclockwise" ), "object-rotate-left", on_rotate_counterclockwise, GDK_L, 0 ),
         PTK_IMG_MENU_ITEM( N_( "Rotate Clockwise" ), "object-rotate-right", on_rotate_clockwise, GDK_R, 0 ),
         PTK_IMG_MENU_ITEM( N_( "Flip Horizontal" ), "object-flip-horizontal", on_flip_horizontal, GDK_H, 0 ),
         PTK_IMG_MENU_ITEM( N_( "Flip Vertical" ), "object-flip-vertical", on_flip_vertical, GDK_V, 0 ),
         PTK_SEPARATOR_MENU_ITEM,
-        PTK_IMG_MENU_ITEM( N_("Open File"), GTK_STOCK_OPEN, G_CALLBACK(on_open), GDK_O, 0 ),
-        PTK_IMG_MENU_ITEM( N_("Save File"), GTK_STOCK_SAVE, G_CALLBACK(on_save), GDK_S, 0 ),
-        PTK_IMG_MENU_ITEM( N_("Save As"), GTK_STOCK_SAVE_AS, G_CALLBACK(on_save_as), GDK_A, 0 ),
+        PTK_IMG_MENU_ITEM( N_("Open File"), "document-open", G_CALLBACK(on_open), GDK_O, 0 ),
+        PTK_IMG_MENU_ITEM( N_("Save File"), "document-save", G_CALLBACK(on_save), GDK_S, 0 ),
+        PTK_IMG_MENU_ITEM( N_("Save As"), "document-save-as", G_CALLBACK(on_save_as), GDK_A, 0 ),
 //        PTK_IMG_MENU_ITEM( N_("Save As Other Size"), GTK_STOCK_SAVE_AS, G_CALLBACK(on_save_as), GDK_A, 0 ),
-        PTK_IMG_MENU_ITEM( N_("Delete File"), GTK_STOCK_DELETE, G_CALLBACK(on_delete), GDK_Delete, 0 ),
+        PTK_IMG_MENU_ITEM( N_("Delete File"), "edit-delete", G_CALLBACK(on_delete), GDK_Delete, 0 ),
         PTK_SEPARATOR_MENU_ITEM,
-        PTK_IMG_MENU_ITEM( N_("Preferences"), GTK_STOCK_PREFERENCES, G_CALLBACK(on_preference), GDK_P, 0 ),
+        PTK_IMG_MENU_ITEM( N_("Preferences"), "preferences-system", G_CALLBACK(on_preference), GDK_P, 0 ),
         PTK_IMG_MENU_ITEM( N_("Show/Hide toolbar"), NULL, G_CALLBACK(on_toggle_toolbar), GDK_T, 0 ),
-        PTK_STOCK_MENU_ITEM( GTK_STOCK_ABOUT, on_about ),
+        PTK_STOCK_MENU_ITEM( "help-about", on_about ),
         PTK_SEPARATOR_MENU_ITEM,
-        PTK_IMG_MENU_ITEM( N_("Quit"), GTK_STOCK_QUIT, G_CALLBACK(on_quit), GDK_Q, 0 ),
+        PTK_IMG_MENU_ITEM( N_("Quit"), "application-exit", G_CALLBACK(on_quit), GDK_Q, 0 ),
         PTK_MENU_END
     };
     GtkWidget* rotate_cw;
@@ -1512,7 +1505,8 @@ void show_popup_menu( MainWin* mw, GdkEventButton* evt )
 
     gtk_widget_show_all( (GtkWidget*)popup );
     g_signal_connect( popup, "selection-done", G_CALLBACK(gtk_widget_destroy), NULL );
-    gtk_menu_popup( (GtkMenu*)popup, NULL, NULL, NULL, NULL, evt->button, evt->time );
+
+    gtk_menu_popup_at_pointer( (GtkMenu*)popup, (GdkEvent*)evt );
 }
 
 void on_about( GtkWidget* menu, MainWin* mw )
