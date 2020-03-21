@@ -32,11 +32,8 @@ if test x"$enable_more_warnings" = x"yes"; then
 fi
 AC_SUBST(ADDITIONAL_FLAGS)
 
-
 AM_GLIB_GNU_GETTEXT
 IT_PROG_INTLTOOL([0.40.0])
-
-
 
 CFLAGS="$CFLAGS -DENABLE_GTK3"
 gtk_modules="gtk+-3.0 >= 3.0.0"

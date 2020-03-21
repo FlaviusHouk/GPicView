@@ -21,49 +21,60 @@
 #include "image-view.h"
 #include <math.h>
 
-static void image_view_finalize(GObject *iv);
+typedef struct
+{
+    GtkAdjustment *hadj, *vadj;
+    GdkPixbuf* pix;
+//    GdkPixmap* buffer;
+//    bool cached;
+    gdouble scale;
+    GdkInterpType interp_type;
+    guint idle_handler;
+    GdkRectangle img_area;
+    GtkAllocation allocation;
+}LxImageViewPrivate;
 
-static void image_view_clear( ImageView* iv );
-static gboolean on_idle( ImageView* iv );
-static void calc_image_area( ImageView* iv );
-static void paint(  ImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type );
+static void lx_image_view_finalize(GObject *iv);
+
+static void lx_image_view_clear( LxImageView* iv );
+static gboolean on_idle( LxImageView* iv );
+static void calc_image_area( LxImageView* iv );
+static void paint(  LxImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type );
 
 #if GTK_CHECK_VERSION(3, 0, 0)
 
-static void image_view_paint(  ImageView* iv, cairo_t* cr );
+static void lx_image_view_paint(  LxImageView* iv, cairo_t* cr );
 
 static void on_get_preferred_width( GtkWidget* widget, gint* minimal_width, gint* natural_width );
 static void on_get_preferred_height( GtkWidget* widget, gint* minimal_height, gint* natural_height );
 static gboolean on_draw_event(GtkWidget* widget, cairo_t* cr);
 
-#else // GTK2
-
-static void image_view_paint(  ImageView* iv, GdkEventExpose* evt );
-
-static void on_size_request( GtkWidget* w, GtkRequisition* req );
-static gboolean on_expose_event( GtkWidget* widget, GdkEventExpose* evt );
 #endif
-
 
 static void on_size_allocate( GtkWidget* widget, GtkAllocation    *allocation );
 
-G_DEFINE_TYPE( ImageView, image_view, GTK_TYPE_MISC );
+G_DEFINE_TYPE_WITH_PRIVATE( LxImageView, lx_image_view, GTK_TYPE_WIDGET );
 
-void image_view_init( ImageView* iv )
+void lx_image_view_init( LxImageView* iv )
 {
-    iv->pix = NULL;
-    iv->scale =  1.0;
-    iv->interp_type = GDK_INTERP_BILINEAR;
-    iv->idle_handler = 0;
-#if GTK_CHECK_VERSION(2, 18, 0)
-    gtk_widget_set_can_focus((GtkWidget*)iv, TRUE );
-    gtk_widget_set_app_paintable((GtkWidget*)iv, TRUE );
-#else
-    GTK_WIDGET_SET_FLAGS( (GtkWidget*)iv, GTK_CAN_FOCUS | GTK_APP_PAINTABLE );
-#endif
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+
+    private->pix = NULL;
+    private->scale =  1.0;
+    private->interp_type = GDK_INTERP_BILINEAR;
+    private->idle_handler = 0;
+
+    gtk_widget_set_has_window( GTK_WIDGET(iv), FALSE );
+    gtk_widget_set_can_focus( GTK_WIDGET(iv), TRUE );
+    gtk_widget_set_app_paintable( GTK_WIDGET(iv), TRUE );
 }
 
-void image_view_class_init( ImageViewClass* klass )
+static void lx_image_view_realize(GtkWidget* widget)
+{
+
+}
+
+void lx_image_view_class_init( LxImageViewClass* klass )
 {
     GObjectClass * obj_class;
     GtkWidgetClass *widget_class;
@@ -71,19 +82,13 @@ void image_view_class_init( ImageViewClass* klass )
     obj_class = ( GObjectClass * ) klass;
 //    obj_class->set_property = _set_property;
 //   obj_class->get_property = _get_property;
-    obj_class->finalize = image_view_finalize;
+    obj_class->finalize = lx_image_view_finalize;
 
     widget_class = GTK_WIDGET_CLASS ( klass );
-#if GTK_CHECK_VERSION(3, 0, 0)
     widget_class->get_preferred_width = on_get_preferred_width;
     widget_class->get_preferred_height = on_get_preferred_height;
     widget_class->draw = on_draw_event;
-#else // GTK2
-    widget_class->size_request = on_size_request;
-    widget_class->expose_event = on_expose_event;
-#endif
     widget_class->size_allocate = on_size_allocate;
-
 
 /*
     // set up scrolling support
@@ -92,7 +97,7 @@ void image_view_class_init( ImageViewClass* klass )
                 g_signal_new ( "set_scroll_adjustments",
                         G_TYPE_FROM_CLASS (obj_class),
                         G_SIGNAL_RUN_LAST,
-                        G_STRUCT_OFFSET (ImageView::Class, set_scroll_adjustments),
+                        G_STRUCT_OFFSET (LxImageView::Class, set_scroll_adjustments),
                         NULL, NULL,
                         _marshal_VOID__OBJECT_OBJECT,
                         G_TYPE_NONE, 2,
@@ -100,9 +105,9 @@ void image_view_class_init( ImageViewClass* klass )
 */
 }
 
-void image_view_finalize(GObject *iv)
+void lx_image_view_finalize(GObject *iv)
 {
-    image_view_clear( (ImageView*)iv );
+    lx_image_view_clear( LX_IMAGE_VIEW(iv) );
 /*
     if( vadj )
         g_object_unref( vadj );
@@ -111,83 +116,68 @@ void image_view_finalize(GObject *iv)
 */
 }
 
-GtkWidget* image_view_new()
+GtkWidget* lx_image_view_new()
 {
-    return (GtkWidget*)g_object_new ( IMAGE_VIEW_TYPE, NULL );
+    return g_object_new ( LX_TYPE_IMAGE_VIEW, NULL );
 }
 
 // End of GObject-related stuff
 
-void image_view_set_adjustments( ImageView* iv, GtkAdjustment* h, GtkAdjustment* v )
+void lx_image_view_set_adjustments( LxImageView* iv, GtkAdjustment* h, GtkAdjustment* v )
 {
-    if( iv->hadj != h )
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+    
+    if( private->hadj != h )
     {
-        if( iv->hadj )
-            g_object_unref( iv->hadj );
+        if( G_LIKELY(private->hadj) )
+        {
+            g_object_unref( private->hadj );
+        }
         if( G_LIKELY(h) )
         {
-    #if GTK_CHECK_VERSION( 2, 10, 0 )
-            iv->hadj = (GtkAdjustment*)g_object_ref_sink( h );
-    #else
-            iv->hadj = (GtkAdjustment*)h;
-            gtk_object_sink( (GtkObject*)h );
-    #endif
+            private->hadj = (GtkAdjustment*)g_object_ref_sink( h );
         }
         else
-            iv->hadj = NULL;
+        {
+            private->hadj = NULL;
+        }
     }
-    if( iv->vadj != v )
+    if( private->vadj != v )
     {
-        if( iv->vadj )
-            g_object_unref( iv->vadj );
+        if( G_LIKELY( private->vadj) )
+        {
+            g_object_unref( private->vadj );
+        }
         if( G_LIKELY(v) )
         {
-#if GTK_CHECK_VERSION( 2, 10, 0 )
-            iv->vadj = (GtkAdjustment*)g_object_ref_sink( v );
-#else
-            iv->vadj = (GtkAdjustment*)v;
-            gtk_object_sink( (GtkObject*)v );
-#endif
+            private->vadj = (GtkAdjustment*)g_object_ref_sink( v );
         }
         else
-            iv->vadj = NULL;
+        {
+            private->vadj = NULL;
+        }
     }
 }
 
-#if GTK_CHECK_VERSION(3, 0, 0)
-
 void on_get_preferred_width( GtkWidget* widget, gint* minimal_width, gint* natural_width )
 {
-    ImageView* iv = (ImageView*)widget;
-    *minimal_width = *natural_width = iv->img_area.width;
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(LX_IMAGE_VIEW(widget));
+    *minimal_width = *natural_width = private->img_area.width;
 }
 
 void on_get_preferred_height( GtkWidget* widget, gint* minimal_height, gint* natural_height )
 {
-    ImageView* iv = (ImageView*)widget;
-    *minimal_height = *natural_height = iv->img_area.height;
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(LX_IMAGE_VIEW(widget));
+    *minimal_height = *natural_height = private->img_area.height;
 }
 
-#else // GTK2
-
-void on_size_request( GtkWidget* w, GtkRequisition* req )
-{
-    ImageView* iv = (ImageView*)w;
-
-    w->requisition.width = iv->img_area.width;
-    w->requisition.height = iv->img_area.height;
-
-    GTK_WIDGET_CLASS(image_view_parent_class)->size_request (w, req);
-}
-
-#endif
 
 void on_size_allocate( GtkWidget* widget, GtkAllocation   *allocation )
 {
-    GTK_WIDGET_CLASS(image_view_parent_class)->size_allocate( widget, allocation );
-    ImageView* iv = (ImageView*)widget;
+    GTK_WIDGET_CLASS(lx_image_view_parent_class)->size_allocate( widget, allocation );
 
-    iv->allocation = *allocation;
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(LX_IMAGE_VIEW(widget));
+    private->allocation = *allocation;
 
 /*
     if( !iv->buffer || allocation->width != widget->allocation.width ||
@@ -200,10 +190,8 @@ void on_size_allocate( GtkWidget* widget, GtkAllocation   *allocation )
         g_debug( "off screen buffer created: %d x %d", allocation->width, allocation->height );
     }
 */
-    calc_image_area( iv );
+    calc_image_area( LX_IMAGE_VIEW(widget) );
 }
-
-#if GTK_CHECK_VERSION(3, 0, 0)
 
 static cairo_region_t *
 eel_cairo_get_clip_region (cairo_t *cr)
@@ -249,16 +237,20 @@ eel_cairo_get_clip_region (cairo_t *cr)
 static gboolean on_draw_event( GtkWidget* widget, cairo_t *cr )
 {
 
-    ImageView* iv = (ImageView*)widget;
+    LxImageView* iv = LX_IMAGE_VIEW(widget);
+
     if ( gtk_widget_get_mapped(widget) ) 
-        image_view_paint( iv, cr );
+        lx_image_view_paint( iv, cr );
+        
     return FALSE;
 
 }
 
-void image_view_paint( ImageView* iv, cairo_t *cr )
+void lx_image_view_paint( LxImageView* iv, cairo_t *cr )
 {
-    if( iv->pix )
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+
+    if( private->pix )
     {
         cairo_region_t * region = eel_cairo_get_clip_region(cr);
         int n_rects = cairo_region_num_rectangles(region);
@@ -273,64 +265,27 @@ void image_view_paint( ImageView* iv, cairo_t *cr )
 
         cairo_region_destroy (region);
 
-        if( 0 == iv->idle_handler )
-            iv->idle_handler = g_idle_add( (GSourceFunc)on_idle, iv );
-    }
-}
-#else
-
-gboolean on_expose_event( GtkWidget* widget, GdkEventExpose* evt )
-{
-    ImageView* iv = (ImageView*)widget;
-
-    if( gtk_widget_get_mapped (widget) )
-        image_view_paint( iv, evt );
-    return FALSE;
-}
-
-void image_view_paint( ImageView* iv, GdkEventExpose* evt )
-{
-/*
-    GtkWidget* widget = (GtkWidget*)iv;
-    if( cached )
-    {
-//        gdk_draw_drawable( drawable, widget->style->fg_gc[GTK_STATE_NORMAL], buffer,
-//                         0, 0,  );
-        return;
-    }
-*/
-
-    if( iv->pix )
-    {
-        GdkRectangle* rects = NULL;
-        int i, n_rects = 0;
-        gdk_region_get_rectangles( evt->region, &rects, &n_rects );
-
-        for( i = 0; i < n_rects; ++i )
+        if( 0 == private->idle_handler )
         {
-            // GdkRectangle& rect = rects[i];
-            paint( iv, rects + i, GDK_INTERP_NEAREST );
+            private->idle_handler = g_idle_add( (GSourceFunc)on_idle, iv );
         }
-        g_free( rects );
-
-        if( 0 == iv->idle_handler )
-            iv->idle_handler = g_idle_add( (GSourceFunc)on_idle, iv );
     }
 }
 
-#endif
-void image_view_clear( ImageView* iv )
+void lx_image_view_clear( LxImageView* iv )
 {
-    if( iv->idle_handler )
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+
+    if( G_LIKELY(private->idle_handler) )
     {
-        g_source_remove( iv->idle_handler );
-        iv->idle_handler = 0;
+        g_source_remove( private->idle_handler );
+        private->idle_handler = 0;
     }
 
-    if( iv->pix )
+    if( G_LIKELY(private->pix) )
     {
-        g_object_unref( iv->pix );
-        iv->pix = NULL;
+        g_object_unref( private->pix );
+        private->pix = NULL;
         calc_image_area( iv );
     }
 /*
@@ -342,161 +297,172 @@ void image_view_clear( ImageView* iv )
 */
 }
 
-void image_view_set_pixbuf( ImageView* iv, GdkPixbuf* pixbuf )
+void lx_image_view_set_pixbuf( LxImageView* iv, GdkPixbuf* pixbuf )
 {
-    if( pixbuf != iv->pix )
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+    
+    if( pixbuf != private->pix )
     {
-        image_view_clear( iv );
+        lx_image_view_clear( iv );
         if( G_LIKELY(pixbuf) )
-            iv->pix = (GdkPixbuf*)g_object_ref( pixbuf );
+        {
+            private->pix = (GdkPixbuf*)g_object_ref( pixbuf );
+        }
+        
         calc_image_area( iv );
         gtk_widget_queue_resize( (GtkWidget*)iv );
 //        gtk_widget_queue_draw( (GtkWidget*)iv);
     }
 }
 
-void image_view_set_scale( ImageView* iv, gdouble new_scale, GdkInterpType type )
+void lx_image_view_set_scale( LxImageView* iv, gdouble new_scale, GdkInterpType type )
 {
-    if( new_scale == iv->scale )
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+
+    if( new_scale == private->scale )
         return;
     
-    gdouble initZoom = iv->scale;
+    gdouble initZoom = private->scale;
     gint xPos, yPos;
     gtk_widget_get_pointer(GTK_WIDGET(iv), &xPos, &yPos);
     
     //g_print("Mouse: %d,%d\n", xPos, yPos);
-    gdouble oldRelativePositionX =  xPos * 1.0 / iv->img_area.width; 
-    gdouble oldRelativePositionY = yPos * 1.0 / iv->img_area.height;
-    gdouble visibleAreaX = xPos - gtk_adjustment_get_value(iv->hadj);
-    gdouble visibleAreaY = yPos - gtk_adjustment_get_value(iv->vadj);
+    gdouble oldRelativePositionX =  xPos * 1.0 / private->img_area.width; 
+    gdouble oldRelativePositionY = yPos * 1.0 / private->img_area.height;
+    gdouble visibleAreaX = xPos - gtk_adjustment_get_value(private->hadj);
+    gdouble visibleAreaY = yPos - gtk_adjustment_get_value(private->vadj);
 
-    iv->scale = new_scale;
-    if( iv->pix )
+    private->scale = new_scale;
+    if( G_LIKELY(private->pix) )
     {
         calc_image_area( iv );
         
-        gdouble newPosX = oldRelativePositionX * iv->img_area.width - visibleAreaX;
-        gdouble newPosY = oldRelativePositionY * iv->img_area.height - visibleAreaY;
+        gdouble newPosX = oldRelativePositionX * private->img_area.width - visibleAreaX;
+        gdouble newPosY = oldRelativePositionY * private->img_area.height - visibleAreaY;
         //g_print("Adjustment: %f,%f\n\n\n", newPosX, newPosY);
 
-        gtk_adjustment_set_value(iv->hadj, newPosX > 0 ? newPosX : 0);
-        gtk_adjustment_set_value(iv->vadj, newPosY > 0 ? newPosY : 0);
+        gtk_adjustment_set_value(private->hadj, newPosX > 0 ? newPosX : 0);
+        gtk_adjustment_set_value(private->vadj, newPosY > 0 ? newPosY : 0);
 
         gtk_widget_queue_resize( (GtkWidget*)iv );
     }
 }
 
-gboolean on_idle( ImageView* iv )
+gboolean on_idle( LxImageView* iv )
 {
     GDK_THREADS_ENTER();
+
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
 
     // FIXME: redraw the whole window everytime is very inefficient
     // There must be some way to optimize iv. :-(
     GdkRectangle rect;
 
-    if( G_LIKELY(iv->hadj) )
+    if( G_LIKELY(private->hadj) )
     {
-        rect.x = (int)gtk_adjustment_get_value(iv->hadj);
-#if GTK_CHECK_VERSION(2, 14, 0)
-        rect.width = (int)gtk_adjustment_get_page_size(iv->hadj);
-#else
-        rect.width = (int)iv->hadj->page_size;
-#endif
+        rect.x = (int)gtk_adjustment_get_value(private->hadj);
+        rect.width = (int)gtk_adjustment_get_page_size(private->hadj);
     }
     else
     {
-        rect.x = iv->allocation.x;
-        rect.width = iv->allocation.width;
+        rect.x = private->allocation.x;
+        rect.width = private->allocation.width;
     }
 
-    if( G_LIKELY(iv->vadj) )
+    if( G_LIKELY(private->vadj) )
     {
-        rect.y = (int)gtk_adjustment_get_value(iv->vadj);
-#if GTK_CHECK_VERSION(2, 14, 0)
-        rect.height = (int)gtk_adjustment_get_page_size(iv->vadj);
-#else
-        rect.height = (int)iv->vadj->page_size;
-#endif
+        rect.y = (int)gtk_adjustment_get_value(private->vadj);
+        rect.height = (int)gtk_adjustment_get_page_size(private->vadj);
     }
     else
     {
-        rect.y = iv->allocation.y;
-        rect.height = iv->allocation.height;
+        rect.y = private->allocation.y;
+        rect.height = private->allocation.height;
     }
 
-    paint( iv, &rect, iv->interp_type );
+    paint( iv, &rect, private->interp_type );
 
     GDK_THREADS_LEAVE();
 
-    iv->idle_handler = 0;
+    private->idle_handler = NULL;
+
     return FALSE;
 }
 
-void calc_image_area( ImageView* iv )
+void calc_image_area( LxImageView* iv )
 {
-    if( G_LIKELY( iv->pix ) )
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+
+    if( G_LIKELY( private->pix ) )
     {
-        GtkAllocation allocation = iv->allocation;
-        iv->img_area.width = (int)floor( ((gdouble)gdk_pixbuf_get_width( iv->pix )) * iv->scale + 0.5 );
-        iv->img_area.height = (int)floor( ((gdouble)gdk_pixbuf_get_height( iv->pix )) * iv->scale + 0.5 );
+        GtkAllocation allocation = private->allocation;
+        private->img_area.width = (int)floor( ((gdouble)gdk_pixbuf_get_width( private->pix )) * private->scale + 0.5 );
+        private->img_area.height = (int)floor( ((gdouble)gdk_pixbuf_get_height( private->pix )) * private->scale + 0.5 );
         // g_debug( "width=%d, height=%d", width, height );
 
         int x_offset = 0, y_offset = 0;
-        if( iv->img_area.width < allocation.width )
-            x_offset = (int)floor( ((gdouble)(allocation.width - iv->img_area.width)) / 2 + 0.5);
-        if( iv->img_area.height < allocation.height )
-            y_offset = (int)floor( ((gdouble)(allocation.height - iv->img_area.height)) / 2 + 0.5);
+        if( private->img_area.width < allocation.width )
+            x_offset = (int)floor( ((gdouble)(allocation.width - private->img_area.width)) / 2 + 0.5);
 
-        iv->img_area.x = x_offset;
-        iv->img_area.y = y_offset;
+        if( private->img_area.height < allocation.height )
+            y_offset = (int)floor( ((gdouble)(allocation.height - private->img_area.height)) / 2 + 0.5);
+
+        private->img_area.x = x_offset;
+        private->img_area.y = y_offset;
     }
     else
     {
-        iv->img_area.x = iv->img_area.y = iv->img_area.width = iv->img_area.height = 0;
+        private->img_area.x = private->img_area.y = private->img_area.width = private->img_area.height = 0;
     }
 }
 
-void paint( ImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type )
+void paint( LxImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type )
 {
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+    
     GdkRectangle rect;
-    if( ! gdk_rectangle_intersect( invalid_rect, &iv->img_area, &rect ) )
+    if( ! gdk_rectangle_intersect( invalid_rect, &private->img_area, &rect ) )
         return;
 
     int dest_x;
     int dest_y;
 
     GdkPixbuf* src_pix = NULL;
-    if( iv->scale == 1.0 )  // original size
+    if( private->scale == 1.0 )  // original size
     {
-        src_pix = (GdkPixbuf*)g_object_ref( iv->pix );
-        dest_x = iv->img_area.x;
-        dest_y = iv->img_area.y;
+        src_pix = (GdkPixbuf*)g_object_ref( private->pix );
+        dest_x = private->img_area.x;
+        dest_y = private->img_area.y;
     }
     else    // scaling is needed
     {
         dest_x = rect.x;
         dest_y = rect.y;
 
-        rect.x -= iv->img_area.x;
-        rect.y -= iv->img_area.y;
+        rect.x -= private->img_area.x;
+        rect.y -= private->img_area.y;
 
         GdkPixbuf* scaled_pix = NULL;
-        int src_x = (int)floor( ((gdouble)rect.x) / iv->scale + 0.5 );
-        int src_y = (int)floor( ((gdouble)rect.y) / iv->scale + 0.5 );
-        int src_w = (int)floor( ((gdouble)rect.width) / iv->scale + 0.5 );
-        int src_h = (int)floor( ((gdouble)rect.height) / iv->scale + 0.5 );
-        if( src_y > gdk_pixbuf_get_height( iv->pix ) )
-            src_y = gdk_pixbuf_get_height( iv->pix );
-        if( src_x + src_w > gdk_pixbuf_get_width( iv->pix ) )
-            src_w = gdk_pixbuf_get_width( iv->pix ) - src_x;
-        if( src_y + src_h > gdk_pixbuf_get_height( iv->pix ) )
-            src_h = gdk_pixbuf_get_height( iv->pix ) - src_y;
+        int src_x = (int)floor( ((gdouble)rect.x) / private->scale + 0.5 );
+        int src_y = (int)floor( ((gdouble)rect.y) / private->scale + 0.5 );
+        int src_w = (int)floor( ((gdouble)rect.width) / private->scale + 0.5 );
+        int src_h = (int)floor( ((gdouble)rect.height) / private->scale + 0.5 );
+        
+        if( src_y > gdk_pixbuf_get_height( private->pix ) )
+            src_y = gdk_pixbuf_get_height( private->pix );
+
+        if( src_x + src_w > gdk_pixbuf_get_width( private->pix ) )
+            src_w = gdk_pixbuf_get_width( private->pix ) - src_x;
+
+        if( src_y + src_h > gdk_pixbuf_get_height( private->pix ) )
+            src_h = gdk_pixbuf_get_height( private->pix ) - src_y;
+            
         /*g_print("orig src: x=%d, y=%d, w=%d, h=%d\n",
                 src_x, src_y, src_w, src_h );*/
 
         if ((src_w > 0) && (src_h > 0))
         {
-            src_pix = gdk_pixbuf_new_subpixbuf( iv->pix, src_x, src_y,  src_w, src_h );
+            src_pix = gdk_pixbuf_new_subpixbuf( private->pix, src_x, src_y,  src_w, src_h );
             scaled_pix = gdk_pixbuf_scale_simple( src_pix, rect.width, rect.height, type );
             g_object_unref( src_pix );
             src_pix = scaled_pix;
@@ -516,10 +482,13 @@ void paint( ImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type )
     }
 }
 
-void image_view_get_size( ImageView* iv, int* w, int* h )
+void lx_image_view_get_size( LxImageView* iv, int* w, int* h )
 {
+    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
+
     if( G_LIKELY(w) )
-        *w = iv->img_area.width;
+        *w = private->img_area.width;
+
     if( G_LIKELY(h) )
-        *h = iv->img_area.height;
+        *h = private->img_area.height;
 }

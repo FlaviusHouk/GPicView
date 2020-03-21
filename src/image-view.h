@@ -28,45 +28,29 @@
     @author PCMan (Hong Jen Yee) <pcman.tw@gmail.com>
 */
 
-#define IMAGE_VIEW_TYPE        ( image_view_get_type ())
-#define IMAGE_VIEW(obj)        (G_TYPE_CHECK_INSTANCE_CAST ((obj), IMAGE_VIEW_TYPE, ImageView))
-#define IMAGE_VIEW_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), IMAGE_VIEW_TYPE, ImageViewClass))
-#define IS_IMAGE_VIEW(obj)     (G_TYPE_CHECK_INSTANCE_TYPE ((obj), IMAGE_VIEW_TYPE))
-#define IS_IMAGE_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), IMAGE_VIEW_TYPE))
-#define IMAGE_VIEW_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), IMAGE_VIEW_TYPE, ImageViewClass))
+G_BEGIN_DECLS
 
-typedef struct _ImageViewClass
+#define LX_TYPE_IMAGE_VIEW lx_image_view_get_type ()
+
+G_DECLARE_DERIVABLE_TYPE(LxImageView, lx_image_view, LX, IMAGE_VIEW, GtkWidget);
+
+
+struct _LxImageViewClass
 {
-    GtkMiscClass parent_class;
+    GtkWidgetClass parent_class;
     void (*set_scroll_adjustments)( GtkWidget* w, GtkAdjustment* h, GtkAdjustment* v );
-}ImageViewClass;
+};
 
-typedef struct _ImageView
-{
-    GtkMisc parent;
+GtkWidget* lx_image_view_new();
 
-    GtkAdjustment *hadj, *vadj;
-    GdkPixbuf* pix;
-//    GdkPixmap* buffer;
-//    bool cached;
-    gdouble scale;
-    GdkInterpType interp_type;
-    guint idle_handler;
-    GdkRectangle img_area;
-    GtkAllocation allocation;
-}ImageView;
+void lx_image_view_set_pixbuf( LxImageView* iv, GdkPixbuf* pixbuf );
 
-GtkWidget* image_view_new();
+gdouble lx_image_view_get_scale( LxImageView* iv );
+void lx_image_view_set_scale( LxImageView* iv, gdouble new_scale, GdkInterpType type );
+void lx_image_view_get_size( LxImageView* iv, int* w, int* h );
 
-void image_view_set_pixbuf( ImageView* iv, GdkPixbuf* pixbuf );
+void lx_image_view_set_adjustments( LxImageView* iv, GtkAdjustment* h, GtkAdjustment* v );
 
-gdouble image_view_get_scale( ImageView* iv );
-void image_view_set_scale( ImageView* iv, gdouble new_scale, GdkInterpType type );
-void image_view_get_size( ImageView* iv, int* w, int* h );
-
-void image_view_set_adjustments( ImageView* iv,
-		GtkAdjustment* h, GtkAdjustment* v );
-
-GType image_view_get_type();
+G_END_DECLS
 
 #endif
