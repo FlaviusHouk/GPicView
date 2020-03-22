@@ -37,7 +37,6 @@ typedef struct
 static void lx_image_view_finalize(GObject *iv);
 
 static void lx_image_view_clear( LxImageView* iv );
-static gboolean on_idle( LxImageView* iv );
 static void calc_image_area( LxImageView* iv );
 static void paint(  LxImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type, cairo_t* cr);
 
@@ -260,11 +259,6 @@ void lx_image_view_paint( LxImageView* iv, cairo_t *cr )
         }
 
         cairo_region_destroy (region);
-
-        /*if( 0 == private->idle_handler )
-        {
-            private->idle_handler = g_idle_add( (GSourceFunc)on_idle, iv );
-        }*/
     }
 }
 
@@ -355,43 +349,6 @@ void lx_image_view_set_scale( LxImageView* iv, gdouble new_scale, GdkInterpType 
 
         gtk_widget_queue_resize( (GtkWidget*)iv );
     }
-}
-
-gboolean on_idle( LxImageView* iv )
-{
-    LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
-
-    // FIXME: redraw the whole window everytime is very inefficient
-    // There must be some way to optimize iv. :-(
-    GdkRectangle rect;
-
-    if( G_LIKELY(private->hadj) )
-    {
-        rect.x = (int)gtk_adjustment_get_value(private->hadj);
-        rect.width = (int)gtk_adjustment_get_page_size(private->hadj);
-    }
-    else
-    {
-        rect.x = private->allocation.x;
-        rect.width = private->allocation.width;
-    }
-
-    if( G_LIKELY(private->vadj) )
-    {
-        rect.y = (int)gtk_adjustment_get_value(private->vadj);
-        rect.height = (int)gtk_adjustment_get_page_size(private->vadj);
-    }
-    else
-    {
-        rect.y = private->allocation.y;
-        rect.height = private->allocation.height;
-    }
-
-    paint( iv, &rect, private->interp_type, NULL );
-
-    private->idle_handler = 0;
-
-    return FALSE;
 }
 
 void calc_image_area( LxImageView* iv )
