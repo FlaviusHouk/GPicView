@@ -218,6 +218,7 @@ void main_win_init( MainWin*mw )
 
     lx_image_view_set_adjustments( LX_IMAGE_VIEW(mw->img_view), hadj, vadj );    // dirty hack :-(
     gtk_container_add ( GTK_CONTAINER (mw->scroll), mw->evt_box );
+    
     GtkWidget* viewport = gtk_bin_get_child( (GtkBin*)mw->scroll );
     gtk_viewport_set_shadow_type( (GtkViewport*)viewport, GTK_SHADOW_NONE );
     gtk_container_set_border_width( (GtkContainer*)viewport, 0 );

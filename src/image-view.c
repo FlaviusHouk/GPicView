@@ -39,7 +39,7 @@ static void lx_image_view_finalize(GObject *iv);
 static void lx_image_view_clear( LxImageView* iv );
 static gboolean on_idle( LxImageView* iv );
 static void calc_image_area( LxImageView* iv );
-static void paint(  LxImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type );
+static void paint(  LxImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type, cairo_t* cr);
 
 #if GTK_CHECK_VERSION(3, 0, 0)
 
@@ -69,10 +69,6 @@ void lx_image_view_init( LxImageView* iv )
     gtk_widget_set_app_paintable( GTK_WIDGET(iv), TRUE );
 }
 
-static void lx_image_view_realize(GtkWidget* widget)
-{
-
-}
 
 void lx_image_view_class_init( LxImageViewClass* klass )
 {
@@ -260,15 +256,15 @@ void lx_image_view_paint( LxImageView* iv, cairo_t *cr )
         {
             cairo_rectangle_int_t rectangle;
             cairo_region_get_rectangle(region, i, &rectangle);
-            paint( iv, &rectangle, GDK_INTERP_NEAREST );
+            paint( iv, &rectangle, GDK_INTERP_NEAREST, cr );
         }
 
         cairo_region_destroy (region);
 
-        if( 0 == private->idle_handler )
+        /*if( 0 == private->idle_handler )
         {
             private->idle_handler = g_idle_add( (GSourceFunc)on_idle, iv );
-        }
+        }*/
     }
 }
 
@@ -324,13 +320,26 @@ void lx_image_view_set_scale( LxImageView* iv, gdouble new_scale, GdkInterpType 
     
     gdouble initZoom = private->scale;
     gint xPos, yPos;
-    gtk_widget_get_pointer(GTK_WIDGET(iv), &xPos, &yPos);
+    gdouble oldRelativePositionX,
+            oldRelativePositionY,
+            visibleAreaX,
+            visibleAreaY;
+
+    GdkDisplay* display = gdk_display_get_default();
+    GdkSeat* seat = gdk_display_get_default_seat(display);
+    GdkDevice* device = gdk_seat_get_pointer(seat);
+
+    gdk_window_get_device_position ( gtk_widget_get_window(GTK_WIDGET(iv)),
+                                     device,
+                                     &xPos, 
+                                     &yPos,
+                                     NULL);
     
     //g_print("Mouse: %d,%d\n", xPos, yPos);
-    gdouble oldRelativePositionX =  xPos * 1.0 / private->img_area.width; 
-    gdouble oldRelativePositionY = yPos * 1.0 / private->img_area.height;
-    gdouble visibleAreaX = xPos - gtk_adjustment_get_value(private->hadj);
-    gdouble visibleAreaY = yPos - gtk_adjustment_get_value(private->vadj);
+    oldRelativePositionX =  xPos * 1.0 / private->img_area.width; 
+    oldRelativePositionY = yPos * 1.0 / private->img_area.height;
+    visibleAreaX = xPos - gtk_adjustment_get_value(private->hadj);
+    visibleAreaY = yPos - gtk_adjustment_get_value(private->vadj);
 
     private->scale = new_scale;
     if( G_LIKELY(private->pix) )
@@ -350,8 +359,6 @@ void lx_image_view_set_scale( LxImageView* iv, gdouble new_scale, GdkInterpType 
 
 gboolean on_idle( LxImageView* iv )
 {
-    GDK_THREADS_ENTER();
-
     LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
 
     // FIXME: redraw the whole window everytime is very inefficient
@@ -380,11 +387,9 @@ gboolean on_idle( LxImageView* iv )
         rect.height = private->allocation.height;
     }
 
-    paint( iv, &rect, private->interp_type );
+    paint( iv, &rect, private->interp_type, NULL );
 
-    GDK_THREADS_LEAVE();
-
-    private->idle_handler = NULL;
+    private->idle_handler = 0;
 
     return FALSE;
 }
@@ -416,7 +421,7 @@ void calc_image_area( LxImageView* iv )
     }
 }
 
-void paint( LxImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type )
+void paint( LxImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type, cairo_t* cr )
 {
     LxImageViewPrivate* private = lx_image_view_get_instance_private(iv);
     
@@ -473,10 +478,8 @@ void paint( LxImageView* iv, GdkRectangle* invalid_rect, GdkInterpType type )
     if( G_LIKELY(src_pix) )
     {
         GtkWidget* widget = (GtkWidget*)iv;
-        cairo_t *cr = gdk_cairo_create (gtk_widget_get_window(widget));
         gdk_cairo_set_source_pixbuf (cr, src_pix, dest_x, dest_y);
         cairo_paint (cr);
-        cairo_destroy (cr);
 
         g_object_unref( src_pix );
     }
