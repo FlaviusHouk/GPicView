@@ -25,6 +25,10 @@
 #include "file-dlgs.h"
 #include "pref.h"
 
+#define CANCEL_TEXT "_Cancel"
+#define OPEN_TEXT "_Open"
+#define SAVE_TEXT "_Save"
+
 static void on_update_preview( GtkFileChooser *chooser, GtkImage* img )
 {
     char* file = gtk_file_chooser_get_preview_filename( chooser );
@@ -44,9 +48,15 @@ static void on_update_preview( GtkFileChooser *chooser, GtkImage* img )
 char* get_open_filename( GtkWindow* parent, const char* cwd )
 {
     char* file = NULL;
-    GtkFileChooser* dlg = (GtkFileChooser*)gtk_file_chooser_dialog_new( NULL, parent,
-            GTK_FILE_CHOOSER_ACTION_OPEN, GTK_STOCK_CANCEL,
-            GTK_RESPONSE_CANCEL, GTK_STOCK_OPEN, GTK_RESPONSE_OK, NULL );
+    GtkFileChooser* dlg = 
+        GTK_FILE_CHOOSER(gtk_file_chooser_dialog_new ( NULL, 
+                                                       parent,
+                                                       GTK_FILE_CHOOSER_ACTION_OPEN, 
+                                                       CANCEL_TEXT,
+                                                       GTK_RESPONSE_CANCEL,
+                                                       OPEN_TEXT,
+                                                       GTK_RESPONSE_OK, 
+                                                       NULL ));
     GtkWidget* img;
     GtkFileFilter *filter;
 
@@ -99,15 +109,12 @@ static void on_file_save_filter_changed(GObject* obj, GParamSpec* pspec, gpointe
         GtkWidget* scale;
         if( strcmp( type, "jpeg" ) == 0 )
         {
-            extra = gtk_hbox_new(FALSE, 12);
+            extra = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
             label = gtk_label_new(_("JPEG Quality:"));
             label2 = gtk_label_new(_("Lower quality values yield smaller file sizes,\nbut the image quality will be poorer."));
-            scale = gtk_hscale_new_with_range( 0, 100, 5 );
+            scale = gtk_scale_new_with_range( GTK_ORIENTATION_HORIZONTAL, 0, 100, 5 );
             gtk_range_set_value(GTK_RANGE(scale), pref.jpg_quality);
-#if GTK_CHECK_VERSION(2, 24, 0) 
-#else
-            gtk_range_set_update_policy(GTK_RANGE(scale), GTK_UPDATE_DISCONTINUOUS);
-#endif
+
             g_signal_connect(G_OBJECT(scale), "value-changed", G_CALLBACK(on_int_val_changed), &pref.jpg_quality);
             gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
             gtk_scale_set_value_pos(GTK_SCALE(scale), GTK_POS_RIGHT);
@@ -118,15 +125,12 @@ static void on_file_save_filter_changed(GObject* obj, GParamSpec* pspec, gpointe
         }
         else if( strcmp( type, "png" ) == 0 )
         {
-            extra = gtk_hbox_new(FALSE, 12);
+            extra = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
             label = gtk_label_new(_("PNG Compression Level:"));
             label2 = gtk_label_new(_("Higher compression levels yield smaller file sizes,\nbut takes more time to do the compression."));
-            scale = gtk_hscale_new_with_range( 0, 9, 1 );
+            scale = gtk_scale_new_with_range( GTK_ORIENTATION_HORIZONTAL, 0, 9, 1 );
             gtk_range_set_value(GTK_RANGE(scale), pref.png_compression);
-#if GTK_CHECK_VERSION(2, 24, 0)
-#else
-            gtk_range_set_update_policy(GTK_RANGE(scale), GTK_UPDATE_DISCONTINUOUS);
-#endif
+
             g_signal_connect(G_OBJECT(scale), "value-changed", G_CALLBACK(on_int_val_changed), &pref.png_compression);
             gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
             gtk_scale_set_value_pos(GTK_SCALE(scale), GTK_POS_RIGHT);
@@ -148,9 +152,15 @@ static void on_file_save_filter_changed(GObject* obj, GParamSpec* pspec, gpointe
 char* get_save_filename( GtkWindow* parent, const char* cwd, char** type )
 {
     char* file = NULL;
-    GtkFileChooser* dlg = (GtkFileChooser*)gtk_file_chooser_dialog_new( NULL, parent,
-            GTK_FILE_CHOOSER_ACTION_SAVE, GTK_STOCK_CANCEL,
-            GTK_RESPONSE_CANCEL, GTK_STOCK_SAVE, GTK_RESPONSE_OK, NULL );
+    GtkFileChooser* dlg = 
+        GTK_FILE_CHOOSER(gtk_file_chooser_dialog_new( NULL, 
+                                                      parent,
+                                                      GTK_FILE_CHOOSER_ACTION_SAVE, 
+                                                      CANCEL_TEXT,
+                                                      GTK_RESPONSE_CANCEL, 
+                                                      SAVE_TEXT, 
+                                                      GTK_RESPONSE_OK, 
+                                                      NULL ));
     GSList* modules, *module;
     GtkFileFilter *filter;
 
