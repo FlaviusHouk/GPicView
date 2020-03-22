@@ -27,8 +27,7 @@
 # include <X11/Xlib.h>
 # include <X11/Xutil.h>
 # include <X11/Xatom.h>
-
-void get_working_area(GdkScreen* screen, GdkRectangle *rect);
+#include "working-area.h"
 
 static gboolean gf_display_get_workarea(GdkScreen* g_screen, GdkRectangle *rect) {
 	Atom xa_desktops, xa_current, xa_workarea, xa_type;
@@ -136,13 +135,15 @@ static gboolean gf_display_get_workarea(GdkScreen* g_screen, GdkRectangle *rect)
 	return TRUE;
 }
 
-void get_working_area(GdkScreen* screen, GdkRectangle *rect)
+void get_working_area(GdkWindow* gdkWindow, GdkRectangle *rect)
 {
+	GdkScreen* screen = gdk_window_get_screen(gdkWindow);
+
 	if( !gf_display_get_workarea(screen, rect) )
 	{
-		rect->x = 0;
-		rect->y = 0;
-		rect->width = gdk_screen_width();
-		rect->height = gdk_screen_height();
+		GdkDisplay* display = gdk_window_get_display(gdkWindow);
+		GdkMonitor* monitor = gdk_display_get_monitor_at_window(display, gdkWindow);
+		
+		gdk_monitor_get_geometry(monitor, rect);
 	}
 }

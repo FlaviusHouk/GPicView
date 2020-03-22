@@ -6,7 +6,7 @@
 
 G_BEGIN_DECLS
 
-void get_working_area(GdkScreen* screen, GdkRectangle *rect);
+void get_working_area(GdkWindow* gdkWindow, GdkRectangle *rect);
 
 G_END_DECLS
 

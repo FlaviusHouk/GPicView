@@ -444,7 +444,7 @@ gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom )
         int h = gdk_pixbuf_get_height( mw->pix );
 
         GdkRectangle area;
-        get_working_area( gtk_widget_get_screen((GtkWidget*)mw), &area );
+        get_working_area( gtk_widget_get_window((GtkWidget*)mw), &area );
         // g_debug("determine best zoom mode: orig size:  w=%d, h=%d", w, h);
         // FIXME: actually this is a little buggy :-(
         if( w < area.width && h < area.height && (w >= 640 || h >= 480) )
