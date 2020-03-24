@@ -74,6 +74,8 @@ typedef struct _MainWin
     GtkWidget* percent;
     GdkCursor* hand_cursor;
 
+    GtkStyleProvider* dynamic_style;
+
     GtkAllocation scroll_allocation;
 
     ZoomMode zoom_mode;
@@ -109,6 +111,7 @@ void main_win_center_image( MainWin* mw );
 
 gboolean main_win_scale_image(  MainWin* mw, double new_scale, GdkInterpType type );
 
+void main_win_set_dynamic_style (MainWin* mw, GtkStyleProvider* provider);
 
 GType main_win_get_type();
 

@@ -192,14 +192,20 @@ void main_win_init( MainWin*mw )
     //gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg );
     gtk_widget_set_name(mw->evt_box, "ImageArea");
 
-    GtkStyleContext* context = gtk_widget_get_style_context(mw->evt_box);
-
-    GtkCssProvider* provider = gtk_css_provider_new();
-    GFile* file = g_file_new_for_path( PACKAGE_DATA_DIR "/styles.css");
+    GtkStyleProvider* provider = GTK_STYLE_PROVIDER(gtk_css_provider_new());
     GError* err = NULL;
-    gtk_css_provider_load_from_file(provider, file, &err);
+    gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(provider),
+                                    pref_build_dynamic_css(&pref),
+                                    -1,
+                                    &err);
 
-    gtk_style_context_add_provider(context, GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    if(G_LIKELY(err))
+    {
+        g_printerr("Error: %d.\n%s\n", err->code, err->message);
+        g_assert(FALSE);
+    }
+
+    main_win_set_dynamic_style(mw, provider);
 
     mw->img_view = lx_image_view_new();
     gtk_container_add( (GtkContainer*)mw->evt_box, (GtkWidget*)mw->img_view);
@@ -1637,4 +1643,21 @@ static void main_win_update_zoom_buttons_state(MainWin* mw)
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(mw->btn_orig), button_orig_active);
 }
 
+void main_win_set_dynamic_style (MainWin* mw, GtkStyleProvider* provider)
+{
+    GtkStyleContext* context = gtk_widget_get_style_context(GTK_WIDGET(mw));
+
+    if(G_LIKELY(mw->dynamic_style))
+    {
+        gtk_style_context_remove_provider(context, mw->dynamic_style);
+        g_object_unref(mw->dynamic_style);
+    }
+
+    mw->dynamic_style = provider;
+    
+    if(G_LIKELY(provider))
+    {
+        gtk_style_context_add_provider(context, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    }
+}
 

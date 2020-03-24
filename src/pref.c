@@ -25,6 +25,8 @@
 
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
+#include "locale.h"
+#include "math.h"
 
 #include <stdio.h>
 #include "pref.h"
@@ -104,14 +106,14 @@ void load_preferences()
         color = g_key_file_get_string(kf, "General", "bg", NULL);
         if( color )
         {
-            gdk_color_parse(color, &pref.bg);
+            gdk_rgba_parse (&pref.bg, color);
             g_free(color);
         }
 
         color = g_key_file_get_string(kf, "General", "bg_full", NULL);
         if( color )
         {
-            gdk_color_parse(color, &pref.bg_full);
+            gdk_rgba_parse(&pref.bg_full, color);
             g_free(color);
         }
     }
@@ -142,8 +144,28 @@ void save_preferences()
         fprintf( f, "ask_before_delete=%d\n", pref.ask_before_delete );
         fprintf( f, "rotate_exif_only=%d\n", pref.rotate_exif_only );
         fprintf( f, "open_maximized=%d\n", pref.open_maximized );
-        fprintf( f, "bg=#%02x%02x%02x\n", pref.bg.red/256, pref.bg.green/256, pref.bg.blue/256 );
-        fprintf( f, "bg_full=#%02x%02x%02x\n", pref.bg_full.red/256, pref.bg_full.green/256, pref.bg_full.blue/256 );
+
+        //some cultures has ',' separator for decimals.
+        gchar* current = g_strdup(setlocale(LC_NUMERIC, NULL));
+        setlocale(LC_NUMERIC, "C");
+
+        fprintf( f, 
+                 "bg=rgba(%.0f%%,%.0f%%,%.0f%%,%.2f)\n", 
+                 pref.bg.red * 100, 
+                 pref.bg.green * 100, 
+                 pref.bg.blue * 100, 
+                 pref.bg.alpha);
+
+        fprintf( f, 
+                 "bg_full=rgba(%.0f%%,%.0f%%,%.0f%%,%.2f)\n", 
+                 pref.bg_full.red * 100, 
+                 pref.bg_full.green * 100, 
+                 pref.bg_full.blue * 100, 
+                 pref.bg_full.alpha);
+        
+        setlocale(LC_NUMERIC, current);
+        g_free(current);
+
         fprintf( f, "slide_delay=%d\n", pref.slide_delay );
 
         fprintf( f, "jpg_quality=%d\n", pref.jpg_quality );
@@ -172,13 +194,59 @@ static void on_set_default( GtkButton* btn, gpointer user_data )
     gtk_widget_destroy( dlg );
 }
 
+gchar* 
+pref_build_dynamic_css(Pref* pref)
+{
+    g_assert(pref);
+
+    GString* cssString = g_string_new("GtkEventBox#ImageArea\n{\n");
+
+    g_string_append_printf(cssString, 
+                           "background-color: rgba(%d, %d, %d, %d);\n", 
+                           pref->bg.red,
+                           pref->bg.green,
+                           pref->bg.blue,
+                           pref->bg.alpha);
+    
+    g_string_append(cssString, "background-image: none;\n}");
+    g_string_append(cssString, "\n\n");
+    g_string_append(cssString, "GtkEventBox#ImageAreaFullScreen\n{\n");
+    
+    g_string_append_printf(cssString, 
+                           "background-color: rgba(%d, %d, %d, %d);\n", 
+                           pref->bg_full.red,
+                           pref->bg_full.green,
+                           pref->bg_full.blue,
+                           pref->bg_full.alpha);
+
+    g_string_append(cssString, "background-image: none;\n}");
+
+    return g_string_free(cssString, FALSE);
+}
+
 static void on_set_bg( GtkColorButton* btn, gpointer user_data )
 {
     MainWin* parent=(MainWin*)user_data;
-    gtk_color_button_get_color(GTK_COLOR_BUTTON(btn), &pref.bg);
+
+    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(btn), &(pref.bg));
+
     if( !parent->full_screen )
     {
-        gtk_widget_modify_bg( parent->evt_box, GTK_STATE_NORMAL, &pref.bg );
+        GtkStyleProvider* provider = GTK_STYLE_PROVIDER(gtk_css_provider_new());
+        GError* err = NULL;
+        gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(provider),
+                                        pref_build_dynamic_css(&pref),
+                                        -1,
+                                        &err);
+
+        if(G_LIKELY(err))
+        {
+            g_printerr("Error: %d.\n%s\n", err->code, err->message);
+            g_assert(FALSE);
+        }
+
+        main_win_set_dynamic_style(parent, provider);
+
         gtk_widget_queue_draw(parent->evt_box );
     }
 }
@@ -186,10 +254,26 @@ static void on_set_bg( GtkColorButton* btn, gpointer user_data )
 static void on_set_bg_full( GtkColorButton* btn, gpointer user_data )
 {
     MainWin* parent=(MainWin*)user_data;
-    gtk_color_button_get_color(GTK_COLOR_BUTTON(btn), &pref.bg_full);
+
+    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(btn), &pref.bg_full);
+
     if( parent->full_screen )
     {
-        gtk_widget_modify_bg( parent->evt_box, GTK_STATE_NORMAL, &pref.bg_full );
+        GtkStyleProvider* provider = GTK_STYLE_PROVIDER(gtk_css_provider_new());
+        GError* err = NULL;
+        gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(provider),
+                                        pref_build_dynamic_css(&pref),
+                                        -1,
+                                        &err);
+
+        if(G_LIKELY(err))
+        {
+            g_printerr("Error: %d.\n%s\n", err->code, err->message);
+            g_assert(FALSE);
+        }
+
+        main_win_set_dynamic_style(parent, provider);
+
         gtk_widget_queue_draw(parent->evt_box );
     }
 }
@@ -200,7 +284,14 @@ void edit_preferences( GtkWindow* parent )
               *rotate_exif_only_btn, *slide_delay_spinner, *ask_before_del_btn, *bg_btn, *bg_full_btn;
     GtkBuilder* builder = gtk_builder_new();
     GtkDialog* dlg;
-    gtk_builder_add_from_file(builder, PACKAGE_DATA_DIR "/gpicview/ui/pref-dlg.ui", NULL);
+    GError* err = NULL;
+    gtk_builder_add_from_file(builder, PACKAGE_DATA_DIR "/gpicview/ui/pref-dlg.ui", &err);
+
+    if(G_LIKELY(err))
+    {
+        g_printerr("Error: %d.\n%s\n", err->code, err->message);
+        g_assert(FALSE);
+    }
 
     dlg = (GtkDialog*)gtk_builder_get_object(builder, "dlg");
     gtk_window_set_transient_for((GtkWindow*)dlg, parent);
@@ -224,11 +315,11 @@ void edit_preferences( GtkWindow* parent )
     g_signal_connect( set_default_btn, "clicked", G_CALLBACK(on_set_default), parent );
 
     bg_btn = (GtkWidget*)gtk_builder_get_object(builder, "bg");
-    gtk_color_button_set_color(GTK_COLOR_BUTTON(bg_btn), &pref.bg);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(bg_btn), &pref.bg);
     g_signal_connect( bg_btn, "color-set", G_CALLBACK(on_set_bg), parent );
 
     bg_full_btn = (GtkWidget*)gtk_builder_get_object(builder, "bg_full");
-    gtk_color_button_set_color(GTK_COLOR_BUTTON(bg_full_btn), &pref.bg_full);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(bg_full_btn), &pref.bg_full);
     g_signal_connect( bg_full_btn, "color-set", G_CALLBACK(on_set_bg_full), parent );
 
     g_object_unref( builder );
@@ -241,5 +332,5 @@ void edit_preferences( GtkWindow* parent )
     pref.rotate_exif_only = gtk_toggle_button_get_active( (GtkToggleButton*)rotate_exif_only_btn );
     pref.slide_delay = gtk_spin_button_get_value_as_int( (GtkSpinButton*)slide_delay_spinner );
 
-    gtk_widget_destroy( (GtkWidget*)dlg );
+    gtk_widget_destroy( GTK_WIDGET(dlg) );
 }

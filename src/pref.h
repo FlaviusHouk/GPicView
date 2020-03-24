@@ -34,8 +34,8 @@ typedef struct _Pref
     gboolean ask_before_delete;
     gboolean open_maximized;
     int slide_delay;
-    GdkColor bg;
-    GdkColor bg_full;
+    GdkRGBA bg;
+    GdkRGBA bg_full;
 
     int jpg_quality;
     int png_compression;
@@ -48,6 +48,9 @@ extern Pref pref; /* global variable holding user prerefences */
 void load_preferences(); /* load user preferences */
 void save_preferences(); /* save user preference s*/
 void edit_preferences( GtkWindow* parent );
+
+gchar* 
+pref_build_dynamic_css(Pref* pref);
 
 G_END_DECLS
 
