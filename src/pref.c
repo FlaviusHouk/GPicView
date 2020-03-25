@@ -199,27 +199,33 @@ pref_build_dynamic_css(Pref* pref)
 {
     g_assert(pref);
 
-    GString* cssString = g_string_new("GtkEventBox#ImageArea\n{\n");
+    //some cultures has ',' separator for decimals.
+    gchar* current = g_strdup(setlocale(LC_NUMERIC, NULL));
+    setlocale(LC_NUMERIC, "C");
+
+    GString* cssString = g_string_new("#ImageArea\n{\n");
 
     g_string_append_printf(cssString, 
-                           "background-color: rgba(%d, %d, %d, %d);\n", 
-                           pref->bg.red,
-                           pref->bg.green,
-                           pref->bg.blue,
+                           "background-color: rgba(%.0f%%,%.0f%%,%.0f%%,%.2f);\n", 
+                           pref->bg.red * 100,
+                           pref->bg.green * 100,
+                           pref->bg.blue * 100,
                            pref->bg.alpha);
     
     g_string_append(cssString, "background-image: none;\n}");
     g_string_append(cssString, "\n\n");
-    g_string_append(cssString, "GtkEventBox#ImageAreaFullScreen\n{\n");
+    g_string_append(cssString, "#ImageAreaFullScreen\n{\n");
     
     g_string_append_printf(cssString, 
-                           "background-color: rgba(%d, %d, %d, %d);\n", 
-                           pref->bg_full.red,
-                           pref->bg_full.green,
-                           pref->bg_full.blue,
+                           "background-color: rgba(%.0f%%,%.0f%%,%.0f%%,%.2f);\n", 
+                           pref->bg_full.red * 100,
+                           pref->bg_full.green * 100,
+                           pref->bg_full.blue * 100,
                            pref->bg_full.alpha);
 
     g_string_append(cssString, "background-image: none;\n}");
+
+    setlocale(LC_NUMERIC, current);
 
     return g_string_free(cssString, FALSE);
 }
