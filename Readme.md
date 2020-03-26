@@ -1,7 +1,8 @@
 # GPicView
 
-![GPicView Logo]
-(https://github.com/FlaviusHouk/GPicView/blob/develop_gtk2/gpicview.png)
+<p align="center">
+  <img src="gpicview.png">
+</p>
 
 GPicView is a lightweight gtk-based image viewer. It is a default viewer for LXDE project. It supports formats that supported by GDKPixbuff. 
 
