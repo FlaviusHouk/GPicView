@@ -30,7 +30,7 @@
 
 #include <stdio.h>
 #include "pref.h"
-#include "main-win.h"
+#include "View/main-win.h"
 
 #define CFG_DIR    "gpicview"
 #define CFG_FILE    CFG_DIR"/gpicview.conf"

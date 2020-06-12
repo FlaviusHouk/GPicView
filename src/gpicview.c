@@ -27,7 +27,7 @@
 #include <string.h>
 
 #include "pref.h"
-#include "main-win.h"
+#include "View/main-win.h"
 
 static char** files = NULL;
 static gboolean should_display_version = FALSE;

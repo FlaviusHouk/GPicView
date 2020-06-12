@@ -13,17 +13,17 @@ bin_PROGRAMS = gpicview
 gpicview_SOURCES = \
 	gpicview.c \
 	image-list.c \
-	main-win.c \
-	image-view.c \
+	View/main-win.c \
+	View/image-view.c \
 	working-area.c \
 	ptk-menu.c \
-	file-dlgs.c \
-	jpeg-tran.c \
-	tran-supp.c \
+	View/file-dlgs.c \
+	Imaging/jpeg-tran.c \
+	Imaging/tran-supp.c \
 	pref.c \
-	jhead.c \
-	exif.c \
-	jpgfile.c 
+	Imaging/jhead.c \
+	Imaging/exif.c \
+	Imaging/jpgfile.c 
 
 # the library search path.
 # use -nodefaultlibs to prevent linking libstdc++
@@ -32,15 +32,15 @@ gpicview_LDADD = $(X11_LIBS) $(GTK_LIBS) -lm
 noinst_HEADERS = \
 	glib-mem.h \
 	image-list.h \
-	main-win.h \
-	image-view.h \
+	View/main-win.h \
+	View/image-view.h \
 	working-area.h \
 	ptk-menu.h \
-	file-dlgs.h \
-	jpeg-tran.h \
-	tran-supp.h \
+	View/file-dlgs.h \
+	Imaging/jpeg-tran.h \
+	Imaging/tran-supp.h \
 	pref.h \
-	jhead.h
+	Imaging/jhead.h
 
 noinst_PROGRAMS=xml-purge
 xml_purge_SOURCES=xml-purge.c

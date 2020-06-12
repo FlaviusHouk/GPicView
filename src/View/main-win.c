@@ -42,7 +42,7 @@
 #include "working-area.h"
 #include "ptk-menu.h"
 #include "file-dlgs.h"
-#include "jpeg-tran.h"
+#include "Imaging/jpeg-tran.h"
 
 /* For drag & drop */
 static GtkTargetEntry drop_targets[] =

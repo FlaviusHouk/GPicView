@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT([gpicview],[0.3.0],[],[gpicview])
 # Autotols programs
-AM_INIT_AUTOMAKE([1.10 -Wall -Werror foreign no-dist-gzip dist-xz])
+AM_INIT_AUTOMAKE([1.10 -Wall -Werror foreign no-dist-gzip dist-xz subdir-objects])
 AM_MAINTAINER_MODE
 
 AC_LANG([C])
