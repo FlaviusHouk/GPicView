@@ -45,6 +45,12 @@ static GOptionEntry opt_entries[] =
 
 #define PIXMAP_DIR        PACKAGE_DATA_DIR "/gpicview/pixmaps/"
 
+static void
+on_main_window_close(GtkWidget *object, gpointer   user_data)
+{
+    gtk_main_quit();
+}
+
 int main(int argc, char *argv[])
 {
     GError *error = NULL;
@@ -80,6 +86,8 @@ int main(int argc, char *argv[])
      * We must show the window now in case the file open needs to put up an error dialog. */
     win = (MainWin*)main_win_new();
     gtk_widget_show( GTK_WIDGET(win) );
+
+    g_signal_connect(win, "destroy", G_CALLBACK(on_main_window_close), NULL);
 
     if ( pref.open_maximized )
         gtk_window_maximize( (GtkWindow*)win );

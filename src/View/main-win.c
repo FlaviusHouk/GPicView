@@ -145,13 +145,8 @@ void main_win_finalize( GObject* obj )
 
     if( G_LIKELY(mw->img_list) )
         image_list_free( mw->img_list );
-#if GTK_CHECK_VERSION(3, 0, 0)
+
     g_object_unref( mw->hand_cursor );
-#else
-    gdk_cursor_unref( mw->hand_cursor );
-#endif
-    // FIXME: Put this here is weird
-    gtk_main_quit();
 }
 
 GtkWidget* main_win_new()
