@@ -59,8 +59,9 @@ static void main_win_init( MainWin* mw );
 static void main_win_finalize( GObject* obj );
 
 static void create_nav_bar( MainWin* mw, GtkWidget* box);
-GtkWidget* add_nav_btn( MainWin* mw, const char* icon, const char* tip, GCallback cb, gboolean toggle);
-GtkWidget* add_nav_btn_img( MainWin* mw, const char* icon, const char* tip, GCallback cb, gboolean toggle, GtkWidget** ret_img);
+
+static void 
+add_nav_btn_img( MainWin* mw, GtkButton* but, GCallback cb, gboolean toggle);
 // GtkWidget* add_menu_item(  GtkMenuShell* menu, const char* label, const char* icon, GCallback cb, gboolean toggle=FALSE );
 static void rotate_image( MainWin* mw, int angle );
 static void show_popup_menu( MainWin* mw, GdkEventButton* evt );
@@ -261,68 +262,52 @@ void main_win_init( MainWin*mw )
 
 void create_nav_bar( MainWin* mw, GtkWidget* box )
 {
-    mw->nav_bar = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, 0 );
-    gtk_widget_set_name(mw->nav_bar, "NavBar");
+    GtkBuilder* builder = gtk_builder_new_from_file ("/home/Flavius/C/LXDE/GPicView/data/nav_bar.ui");
+    mw->nav_bar = GTK_WIDGET(gtk_builder_get_object(builder, "nav_bar"));
 
-    add_nav_btn( mw, "go-previous", _("Previous"), G_CALLBACK(on_prev), FALSE );
-    add_nav_btn( mw, "go-next", _("Next"), G_CALLBACK(on_next), FALSE );
-    mw->btn_play_stop = add_nav_btn_img( mw, "media-playback-start", _("Start Slideshow"), G_CALLBACK(on_slideshow), TRUE, &mw->img_play_stop );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "go_prev_butt")), G_CALLBACK(on_prev), FALSE );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "go_next_butt")), G_CALLBACK(on_next), FALSE );
 
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
-                         gtk_separator_new(GTK_ORIENTATION_VERTICAL), 
-                         FALSE, 
-                         FALSE, 
-                         0 );
+    mw->btn_play_stop = GTK_WIDGET(gtk_builder_get_object(builder, "slideshow_butt"));
+    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_play_stop), G_CALLBACK(on_slideshow), TRUE );
 
-    add_nav_btn( mw, "zoom-out", _("Zoom Out"), G_CALLBACK(on_zoom_out), FALSE );
-    add_nav_btn( mw, "zoom-in", _("Zoom In"), G_CALLBACK(on_zoom_in), FALSE );
+    mw->img_play_stop = GTK_WIDGET(gtk_builder_get_object(builder, "start_stop_img"));
 
-//    percent = gtk_entry_new();    // show scale (in percentage)
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "zoom_out_butt")), G_CALLBACK(on_zoom_out), FALSE );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "zoom_in_butt")), G_CALLBACK(on_zoom_in), FALSE );
+    
 //    g_signal_connect( percent, "activate", G_CALLBACK(on_percentage), mw );
 //    gtk_widget_set_size_request( percent, 45, -1 );
 //    gtk_box_pack_start( (GtkBox*)nav_bar, percent, FALSE, FALSE, 2 );
 
-    mw->btn_fit = add_nav_btn( mw, "zoom-fit-best", _("Fit Image To Window Size"),
-                           G_CALLBACK(on_zoom_fit), TRUE );
-    mw->btn_orig = add_nav_btn( mw, "zoom-original", _("Original Size"),
-                           G_CALLBACK(on_orig_size), TRUE );
-    gtk_toggle_button_set_active( (GtkToggleButton*)mw->btn_fit, TRUE );
+    mw->btn_fit = GTK_WIDGET(gtk_builder_get_object(builder, "zoom_fit_best_butt"));
+    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_fit), G_CALLBACK(on_zoom_fit), TRUE );
 
-    add_nav_btn( mw, "view-fullscreen", _("Full Screen"), G_CALLBACK(on_full_screen), FALSE );   // gtk+ 2.8+
+    mw->btn_orig = GTK_WIDGET(gtk_builder_get_object(builder, "zoom_orig_butt"));
+    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_orig), G_CALLBACK(on_orig_size), TRUE );
 
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
-                        gtk_separator_new(GTK_ORIENTATION_VERTICAL), 
-                        FALSE, 
-                        FALSE, 
-                        0 );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "fullscreen_butt")), G_CALLBACK(on_full_screen), FALSE );
 
-    mw->btn_rotate_ccw = add_nav_btn( mw, "object-rotate-left", _("Rotate Counterclockwise"), G_CALLBACK(on_rotate_counterclockwise), FALSE );
-    mw->btn_rotate_cw = add_nav_btn( mw, "object-rotate-right", _("Rotate Clockwise"), G_CALLBACK(on_rotate_clockwise), FALSE );
+    mw->btn_rotate_ccw = GTK_WIDGET(gtk_builder_get_object(builder, "rotate_left_butt"));
+    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_rotate_ccw), G_CALLBACK(on_rotate_counterclockwise), FALSE );
 
-    mw->btn_flip_h = add_nav_btn( mw, "object-flip-horizontal", _("Flip Horizontal"), G_CALLBACK(on_flip_horizontal), FALSE );
-    mw->btn_flip_v = add_nav_btn( mw, "object-flip-vertical", _("Flip Vertical"), G_CALLBACK(on_flip_vertical), FALSE );
+    mw->btn_rotate_cw = GTK_WIDGET(gtk_builder_get_object(builder, "rotate_right_butt"));
+    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_rotate_cw), G_CALLBACK(on_rotate_clockwise), FALSE );
 
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
-                        gtk_separator_new(GTK_ORIENTATION_VERTICAL), 
-                        FALSE, 
-                        FALSE, 
-                        0 );
+    mw->btn_flip_h = GTK_WIDGET(gtk_builder_get_object(builder, "horr_flip_butt"));
+    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_flip_h), G_CALLBACK(on_flip_horizontal), FALSE );
+    mw->btn_flip_v = GTK_WIDGET(gtk_builder_get_object(builder, "vert_flip_butt"));
+    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_flip_v), G_CALLBACK(on_flip_vertical), FALSE );
 
-    add_nav_btn( mw, "document-open", _("Open File"), G_CALLBACK(on_open), FALSE );
-    add_nav_btn( mw, "document-save", _("Save File"), G_CALLBACK(on_save), FALSE );
-    add_nav_btn( mw, "document-save-as", _("Save File As"), G_CALLBACK(on_save_as), FALSE );
-    add_nav_btn( mw, "edit-delete", _("Delete File"), G_CALLBACK(on_delete), FALSE );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "open_butt")), G_CALLBACK(on_open), FALSE );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "save_butt")), G_CALLBACK(on_save), FALSE );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "save_as_butt")), G_CALLBACK(on_save_as), FALSE );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "delete_butt")), G_CALLBACK(on_delete), FALSE );
 
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, 
-                        gtk_separator_new(GTK_ORIENTATION_VERTICAL), 
-                        FALSE, 
-                        FALSE, 
-                        0 );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "pref_butt")), G_CALLBACK(on_preference), FALSE );
+    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "exit_butt")), G_CALLBACK(on_quit), FALSE );
 
-    add_nav_btn( mw, "preferences-system", _("Preferences"), G_CALLBACK(on_preference), FALSE );
-    add_nav_btn( mw, "application-exit", _("Quit"), G_CALLBACK(on_quit), FALSE );
-
-    gtk_box_pack_start( (GtkBox*)box, mw->nav_bar, FALSE, TRUE, 2 );
+    gtk_box_pack_start( GTK_BOX(box), mw->nav_bar, FALSE, TRUE, 2 );
 }
 
 gboolean on_delete_event( GtkWidget* widget, GdkEventAny* evt )
@@ -639,33 +624,13 @@ void main_win_fit_window_size(  MainWin* mw, gboolean can_strech, GdkInterpType 
     main_win_fit_size( mw, mw->scroll_allocation.width, mw->scroll_allocation.height, can_strech, type );
 }
 
-GtkWidget* add_nav_btn( MainWin* mw, const char* icon, const char* tip, GCallback cb, gboolean toggle)
+static void
+add_nav_btn_img(MainWin* mw, GtkButton* btn, GCallback cb, gboolean toggle )
 {
-    GtkWidget* unused;
-    return add_nav_btn_img(mw, icon, tip, cb, toggle, &unused);
-}
-
-GtkWidget* add_nav_btn_img( MainWin* mw, const char* icon, const char* tip, GCallback cb, gboolean toggle, GtkWidget** ret_img )
-{
-    GtkWidget* img = gtk_image_new_from_icon_name(icon, GTK_ICON_SIZE_SMALL_TOOLBAR);
-    GtkWidget* btn;
     if( G_UNLIKELY(toggle) )
-    {
-        btn = gtk_toggle_button_new();
         g_signal_connect( btn, "toggled", cb, mw );
-    }
     else
-    {
-        btn = gtk_button_new();
         g_signal_connect( btn, "clicked", cb, mw );
-    }
-    gtk_button_set_relief( GTK_BUTTON(btn), GTK_RELIEF_NONE );
-    gtk_widget_set_focus_on_click( GTK_WIDGET(btn), FALSE );
-    gtk_container_add( GTK_CONTAINER(btn), img );
-    gtk_widget_set_tooltip_text( btn, tip );
-    gtk_box_pack_start( (GtkBox*)mw->nav_bar, btn, FALSE, FALSE, 0 );
-    *ret_img = img;
-    return btn;
 }
 
 void on_scroll_size_allocate(GtkWidget* widget, GtkAllocation* allocation, MainWin* mv)
