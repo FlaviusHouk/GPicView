@@ -6,6 +6,7 @@
     <property name="name">NavBar</property>
     <property name="visible">True</property>
     <property name="can_focus">False</property>
+    <property name="halign">center</property>
     <child>
       <object class="GtkButton" id="go_prev_butt">
         <property name="visible">True</property>
