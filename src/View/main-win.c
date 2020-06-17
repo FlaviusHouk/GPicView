@@ -92,7 +92,10 @@ static gboolean on_button_press( GtkWidget* widget, GdkEventButton* evt, MainWin
 static gboolean on_button_release( GtkWidget* widget, GdkEventButton* evt, MainWin* mw );
 static gboolean on_mouse_move( GtkWidget* widget, GdkEventMotion* evt, MainWin* mw );
 static gboolean on_scroll_event( GtkWidget* widget, GdkEventScroll* evt, MainWin* mw );
-static gboolean on_key_press_event(GtkWidget* widget, GdkEventKey * key);
+
+static gboolean 
+on_key_press_event(GtkWidget* widget, GdkEventKey * key, gpointer user_data);
+
 static void on_drag_data_received( GtkWidget* widget, GdkDragContext *drag_context,
                 int x, int y, GtkSelectionData* data, guint info, guint time, MainWin* mw );
 static void on_delete( GtkWidget* btn, MainWin* mw );
@@ -116,7 +119,8 @@ static void main_win_adjust_zoom(MainWin* this, ViewModelsImageItem* item);
 
 G_DEFINE_TYPE( MainWin, main_win, GTK_TYPE_WINDOW )
 
-void main_win_class_init( MainWinClass* klass )
+void 
+main_win_class_init( MainWinClass* klass )
 {
     GObjectClass * obj_class;
     GtkWidgetClass *widget_class;
@@ -129,7 +133,6 @@ void main_win_class_init( MainWinClass* klass )
     widget_class = GTK_WIDGET_CLASS ( klass );
     widget_class->delete_event = on_delete_event;
     widget_class->size_allocate = on_size_allocate;
-    widget_class->key_press_event = on_key_press_event;
     widget_class->window_state_event = on_win_state_event;
 }
 
@@ -237,11 +240,14 @@ void main_win_init( MainWin*mw )
 
     gtk_widget_add_events( mw->evt_box,
                            GDK_POINTER_MOTION_MASK|GDK_BUTTON_PRESS_MASK|
-                           GDK_BUTTON_RELEASE_MASK|GDK_SCROLL_MASK );
+                           GDK_BUTTON_RELEASE_MASK|GDK_SCROLL_MASK|
+                           GDK_KEY_PRESS_MASK);
+
     g_signal_connect( mw->evt_box, "button-press-event", G_CALLBACK(on_button_press), mw );
     g_signal_connect( mw->evt_box, "button-release-event", G_CALLBACK(on_button_release), mw );
     g_signal_connect( mw->evt_box, "motion-notify-event", G_CALLBACK(on_mouse_move), mw );
     g_signal_connect( mw->evt_box, "scroll-event", G_CALLBACK(on_scroll_event), mw );
+    g_signal_connect( mw->evt_box, "key-press-event", G_CALLBACK(on_key_press_event), mw);
     // Set bg color to white
 
     //gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg );
@@ -932,9 +938,13 @@ gboolean on_scroll_event( GtkWidget* widget, GdkEventScroll* evt, MainWin* mw )
     return TRUE;
 }
 
-gboolean on_key_press_event(GtkWidget* widget, GdkEventKey * key)
+static gboolean 
+on_key_press_event(GtkWidget* widget, 
+                   GdkEventKey * key,
+                   gpointer user_data)
 {
-    MainWin* mw = (MainWin*)widget;
+    MainWin* mw = MAIN_WIN(user_data);
+
     switch( key->keyval )
     {
         case GDK_Right:
@@ -944,6 +954,7 @@ gboolean on_key_press_event(GtkWidget* widget, GdkEventKey * key)
                 on_prev( NULL, mw );
             else
                 on_next( NULL, mw );
+
             break;
         case GDK_Return:
         case GDK_space:
@@ -1039,16 +1050,14 @@ gboolean on_key_press_event(GtkWidget* widget, GdkEventKey * key)
                 on_quit( NULL, mw );
             break;
         case GDK_q:
-	case GDK_Q:
+	    case GDK_Q:
             on_quit( NULL, mw );
             break;
         case GDK_F11:
             on_full_screen( NULL, mw );
             break;
-
-        default:
-            GTK_WIDGET_CLASS(main_win_parent_class)->key_press_event( widget, key );
     }
+
     return FALSE;
 }
 
