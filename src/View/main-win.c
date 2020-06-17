@@ -24,14 +24,14 @@
 
 #include "main-win.h"
 
+#include "ViewModel/image-item.h"
+
 #include <glib/gi18n.h>
-#include <glib/gstdio.h>
 #include <gdk/gdkkeysyms.h>
 #include <gdk/gdkkeysyms-compat.h>
 
 #include <unistd.h>
 #include <string.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -51,10 +51,6 @@ static GtkTargetEntry drop_targets[] =
     {"text/plain", 0, 1}
 };
 
-extern int ExifRotate(const char * fname, int new_angle);
-// defined in exif.c
-extern int ExifRotateFlipMapping[9][9];
-
 static void main_win_init( MainWin* mw );
 static void main_win_finalize( GObject* obj );
 
@@ -63,7 +59,7 @@ static void create_nav_bar( MainWin* mw, GtkWidget* box);
 static void 
 add_nav_btn_img( MainWin* mw, GtkButton* but, GCallback cb, gboolean toggle);
 // GtkWidget* add_menu_item(  GtkMenuShell* menu, const char* label, const char* icon, GCallback cb, gboolean toggle=FALSE );
-static void rotate_image( MainWin* mw, int angle );
+static void rotate_image( MainWin* mw );
 static void show_popup_menu( MainWin* mw, GdkEventButton* evt );
 
 /* signal handlers */
@@ -78,7 +74,6 @@ static void on_next( GtkWidget* btn, MainWin* mw );
 static void on_orig_size( GtkToggleButton* btn, MainWin* mw );
 static void on_orig_size_menu( GtkToggleButton* btn, MainWin* mw );
 static void on_prev( GtkWidget* btn, MainWin* mw );
-static void on_rotate_auto_save( GtkWidget* btn, MainWin* mw );
 static void on_rotate_clockwise( GtkWidget* btn, MainWin* mw );
 static void on_rotate_counterclockwise( GtkWidget* btn, MainWin* mw );
 static void on_save_as( GtkWidget* btn, MainWin* mw );
@@ -98,14 +93,14 @@ static gboolean on_button_release( GtkWidget* widget, GdkEventButton* evt, MainW
 static gboolean on_mouse_move( GtkWidget* widget, GdkEventMotion* evt, MainWin* mw );
 static gboolean on_scroll_event( GtkWidget* widget, GdkEventScroll* evt, MainWin* mw );
 static gboolean on_key_press_event(GtkWidget* widget, GdkEventKey * key);
-static gboolean save_confirm( MainWin* mw, const char* file_path );
 static void on_drag_data_received( GtkWidget* widget, GdkDragContext *drag_context,
                 int x, int y, GtkSelectionData* data, guint info, guint time, MainWin* mw );
 static void on_delete( GtkWidget* btn, MainWin* mw );
 static void on_about( GtkWidget* menu, MainWin* mw );
-static gboolean on_animation_timeout( MainWin* mw );
+static void on_animation_timeout( ViewModelsImageItem* this, MainWin* mw );
 
 static void update_title(const char *filename, MainWin *mw );
+static void update_btns(MainWin* mw, ViewModelsImageItem* item);
 
 void on_flip_vertical( GtkWidget* btn, MainWin* mw );
 void on_flip_horizontal( GtkWidget* btn, MainWin* mw );
@@ -115,6 +110,7 @@ static int get_new_angle( int orig_angle, int rotate_angle );
 static void main_win_set_zoom_scale(MainWin* mw, double scale);
 static void main_win_set_zoom_mode(MainWin* mw, ZoomMode mode);
 static void main_win_update_zoom_buttons_state(MainWin* mw);
+static void main_win_adjust_zoom(MainWin* this, ViewModelsImageItem* item);
 
 // Begin of GObject-related stuff
 
@@ -139,12 +135,11 @@ void main_win_class_init( MainWinClass* klass )
 
 void main_win_finalize( GObject* obj )
 {
-    MainWin *mw = (MainWin*)obj;
+    MainWin *mw = MAIN_WIN(obj);
 
-    main_win_close(mw);
-
-    if( G_LIKELY(mw->img_list) )
-        image_list_free( mw->img_list );
+    //TODO: move to dispose.
+    if( G_LIKELY(mw->view_model) )
+        g_object_unref( mw->view_model );
 
     g_object_unref( mw->hand_cursor );
 }
@@ -156,8 +151,72 @@ GtkWidget* main_win_new()
 
 // End of GObject-related stuff
 
+static void
+main_win_vm_property_chagned(GObject* sender,
+                             GParamSpec* pspec,
+                             gpointer user_data)
+{
+    ViewModelsMainWinVM* view_model = VIEW_MODELS_MAIN_WIN_VM(sender);
+    MainWin* this = MAIN_WIN(user_data);
+
+    if(strcmp(pspec->name, CURRENT_ITEM_PROP_NAME) == 0)
+    {
+        ViewModelsImageItem* new_item = view_models_main_win_vm_get_current_item(view_model);
+
+        if(new_item == NULL)
+            return;
+
+        gchar* disp_name = g_filename_display_name(g_path_get_basename(view_models_image_item_get_name(new_item)));
+        update_title(disp_name, this);
+        g_free(disp_name);
+
+        update_btns( this, new_item);
+        main_win_adjust_zoom(this, new_item);
+    }
+}
+
+static GPtrArray*
+open_file_dlg_request(gchar* initial_folder, gpointer user_data)
+{
+    GPtrArray* files = g_ptr_array_new();
+
+    g_ptr_array_add(files, get_open_filename(GTK_WINDOW(user_data), initial_folder));
+
+    return files;
+}
+
+static gchar*
+save_file_dlg_request(gchar* initial_folder, gchar** types, gpointer user_data)
+{
+    return get_save_filename(GTK_WINDOW(user_data), initial_folder, types);
+}
+
+static gboolean
+ask_yes_no_question(gchar* msg, gpointer user_data)
+{
+    GtkWidget* dlg = gtk_message_dialog_new( GTK_WINDOW(user_data),
+                GTK_DIALOG_MODAL,
+                GTK_MESSAGE_QUESTION,
+                GTK_BUTTONS_YES_NO,
+                msg);
+    
+    gboolean result = gtk_dialog_run( GTK_DIALOG(dlg) ) != GTK_RESPONSE_YES;
+       
+    gtk_widget_destroy( dlg );
+    return result;
+}
+
 void main_win_init( MainWin*mw )
 {
+    DialogService* dialog_service = g_malloc(sizeof(DialogService));
+    dialog_service->open_file = open_file_dlg_request;
+    dialog_service->save_file = save_file_dlg_request;
+    dialog_service->yes_no_dialog = ask_yes_no_question;
+    dialog_service->user_data = mw;
+
+    mw->view_model = view_models_main_win_vm_new(dialog_service);
+    g_signal_connect(mw->view_model, "notify", G_CALLBACK(main_win_vm_property_chagned), mw);
+
     gtk_window_set_title( (GtkWindow*)mw, _("Image Viewer"));
     if (gtk_icon_theme_has_icon(gtk_icon_theme_get_default(), "gpicview"))
     {
@@ -248,11 +307,6 @@ void main_win_init( MainWin*mw )
                                                     G_N_ELEMENTS(drop_targets),
                                                     GDK_ACTION_COPY | GDK_ACTION_ASK );
     g_signal_connect( mw, "drag-data-received", G_CALLBACK(on_drag_data_received), mw );
-
-    mw->img_list = image_list_new();
-
-    // rotation angle is zero on startup
-    mw->rotation_angle = 0;
 }
 
 void create_nav_bar( MainWin* mw, GtkWidget* box )
@@ -313,132 +367,70 @@ gboolean on_delete_event( GtkWidget* widget, GdkEventAny* evt )
 
 static void update_title(const char *filename, MainWin *mw )
 {
-    static char fname[50];
-    static int wid, hei;
+    static gchar fname[50];
+    static gint wid, hei;
 
-    char buf[100];
+    gchar buf[100];
 
     if(filename != NULL)
     {
-      strncpy(fname, filename, 49);
-      fname[49] = '\0';
+        strncpy(fname, filename, 49);
+        fname[49] = '\0';
 
-      wid = gdk_pixbuf_get_width( mw->pix );
-      hei = gdk_pixbuf_get_height( mw->pix );
+        ViewModelsImageItem* item = view_models_main_win_vm_get_current_item(mw->view_model);
+        GdkPixbuf* pix = view_models_image_item_get_pixbuf(item);
+
+        wid = gdk_pixbuf_get_width( pix );
+        hei = gdk_pixbuf_get_height( pix );
     }
 
     snprintf(buf, 100, "%s (%dx%d) %d%%", fname, wid, hei, (int)(mw->scale * 100));
     gtk_window_set_title( (GtkWindow*)mw, buf );
-
-    return;
 }
 
-gboolean on_animation_timeout( MainWin* mw )
+static void
+on_animation_timeout( ViewModelsImageItem* item, MainWin* mw )
 {
-    int delay;
-    if ( gdk_pixbuf_animation_iter_advance( mw->animation_iter, NULL ) )
-    {
-        mw->pix = gdk_pixbuf_animation_iter_get_pixbuf( mw->animation_iter );
-        lx_image_view_set_pixbuf( (LxImageView*)mw->img_view, mw->pix );
-    }
-    delay = gdk_pixbuf_animation_iter_get_delay_time( mw->animation_iter );
-    mw->animation_timeout = g_timeout_add(delay, (GSourceFunc) on_animation_timeout, mw );
-    return FALSE;
+    lx_image_view_set_pixbuf(LX_IMAGE_VIEW(mw->img_view), 
+                             view_models_image_item_get_pixbuf(item));
 }
 
-static void update_btns(MainWin* mw)
+static void update_btns(MainWin* mw, ViewModelsImageItem* item)
 {
-    gboolean enable = (mw->animation == NULL);
+    gboolean enable = !view_models_image_item_is_animated(item);
+
     gtk_widget_set_sensitive(mw->btn_rotate_cw, enable);
     gtk_widget_set_sensitive(mw->btn_rotate_ccw, enable);
     gtk_widget_set_sensitive(mw->btn_flip_v, enable);
     gtk_widget_set_sensitive(mw->btn_flip_h, enable);
 }
 
-gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom )
+static void 
+main_win_adjust_zoom(MainWin* this, ViewModelsImageItem* item)
 {
-    if(file_path == NULL)
-    {
-        main_win_show_error(mw, _("Path is wrong. Cannot open file."));
-        return FALSE;
-    }
-
-    if (g_file_test(file_path, G_FILE_TEST_IS_DIR))
-    {
-        image_list_open_dir( mw->img_list, file_path, NULL );
-        image_list_sort_by_name( mw->img_list, GTK_SORT_DESCENDING );
-        if (image_list_get_first(mw->img_list))
-        {
-            return main_win_open(mw, image_list_get_current_file_path(mw->img_list), zoom);
-        }
-        
-        return FALSE;
-    }
-
-
-    GError* err = NULL;
-    GdkPixbufFormat* info;
-    info = gdk_pixbuf_get_file_info( file_path, NULL, NULL );
-    char* type = ((info != NULL) ? gdk_pixbuf_format_get_name(info) : "");
-
-    main_win_close( mw );
-
-    /* grabs a file as if it were an animation */
-    mw->animation = gdk_pixbuf_animation_new_from_file( file_path, &err );
-    if( ! mw->animation )
-    {
-        main_win_show_error( mw, err->message );
-        g_error_free(err);
-        update_btns( mw );
-        return FALSE;
-    }
-
-    /* tests if the file is actually just a normal picture */
-    if ( gdk_pixbuf_animation_is_static_image( mw->animation ) )
-    {
-       mw->pix = gdk_pixbuf_animation_get_static_image( mw->animation );
-       g_object_ref(mw->pix);
-       g_object_unref(mw->animation);
-       mw->animation = NULL;
-    }
-    else
-    {
-        int delay;
-        /* we found an animation */
-        mw->animation_iter = gdk_pixbuf_animation_get_iter( mw->animation, NULL );
-        mw->pix = gdk_pixbuf_animation_iter_get_pixbuf( mw->animation_iter );
-        delay = gdk_pixbuf_animation_iter_get_delay_time( mw->animation_iter );
-        mw->animation_timeout = g_timeout_add( delay, (GSourceFunc) on_animation_timeout, mw );
-    }
-    update_btns( mw );
-
-    if(!strcmp(type,"jpeg"))
-    {
-        GdkPixbuf* tmp;
-        // Only jpeg should rotate by EXIF
-        tmp = gdk_pixbuf_apply_embedded_orientation(mw->pix);
-        g_object_unref(mw->pix);
-        mw->pix = tmp;
-    }
-
-    mw->zoom_mode = zoom;
+    GdkPixbuf* pix = view_models_image_item_get_pixbuf(item);
 
     // select most suitable viewing mode
-    if( zoom == ZOOM_NONE )
+    if( this->zoom_mode == ZOOM_NONE )
     {
-        int w = gdk_pixbuf_get_width( mw->pix );
-        int h = gdk_pixbuf_get_height( mw->pix );
+        gint w = gdk_pixbuf_get_width( pix );
+        gint h = gdk_pixbuf_get_height( pix );
 
         GdkRectangle area;
-        get_working_area( gtk_widget_get_window((GtkWidget*)mw), &area );
+        get_working_area( gtk_widget_get_window(GTK_WIDGET(this)), &area );
+
         // g_debug("determine best zoom mode: orig size:  w=%d, h=%d", w, h);
         // FIXME: actually this is a little buggy :-(
         if( w < area.width && h < area.height && (w >= 640 || h >= 480) )
         {
-            gtk_scrolled_window_set_policy( (GtkScrolledWindow*)mw->scroll, GTK_POLICY_NEVER, GTK_POLICY_NEVER );
-            gtk_widget_set_size_request( (GtkWidget*)mw->img_view, w, h );
+            gtk_scrolled_window_set_policy( GTK_SCROLLED_WINDOW(this->scroll), 
+                                            GTK_POLICY_NEVER, 
+                                            GTK_POLICY_NEVER );
+
+            gtk_widget_set_size_request( GTK_WIDGET(this->img_view), w, h );
+            
             GtkRequisition req;
-            gtk_widget_get_preferred_size(GTK_WIDGET(mw), NULL, &req);
+            gtk_widget_get_preferred_size(GTK_WIDGET(this), NULL, &req);
 
             if( req.width < 640 )   
                 req.width = 640;
@@ -446,79 +438,41 @@ gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom )
             if( req.height < 480 )   
                 req.height = 480;
 
-            gtk_window_resize( (GtkWindow*)mw, req.width, req.height );
-            gtk_widget_set_size_request( (GtkWidget*)mw->img_view, -1, -1 );
-            gtk_scrolled_window_set_policy( (GtkScrolledWindow*)mw->scroll, GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC );
-            mw->zoom_mode = ZOOM_ORIG;
-            mw->scale = 1.0;
+            gtk_window_resize( GTK_WINDOW(this), req.width, req.height );
+            gtk_widget_set_size_request( GTK_WIDGET(this->img_view), -1, -1 );
+            gtk_scrolled_window_set_policy( GTK_SCROLLED_WINDOW(this->scroll), 
+                                            GTK_POLICY_AUTOMATIC, 
+                                            GTK_POLICY_AUTOMATIC );
+
+            this->zoom_mode = ZOOM_ORIG;
+            this->scale = 1.0;
         }
         else
         {
-            mw->zoom_mode = ZOOM_FIT;
+            this->zoom_mode = ZOOM_FIT;
         }
     }
 
-    if( mw->zoom_mode == ZOOM_FIT )
+    if( this->zoom_mode == ZOOM_FIT )
     {
-        main_win_fit_window_size( mw, FALSE, GDK_INTERP_BILINEAR );
+        main_win_fit_window_size( this, FALSE, GDK_INTERP_BILINEAR );
     }
-    else  if( mw->zoom_mode == ZOOM_SCALE )  // scale
+    else  if( this->zoom_mode == ZOOM_SCALE )  // scale
     {
-        main_win_scale_image( mw, mw->scale, GDK_INTERP_BILINEAR );
+        main_win_scale_image( this, this->scale, GDK_INTERP_BILINEAR );
     }
-    else  if( mw->zoom_mode == ZOOM_ORIG )  // original size
+    else  if( this->zoom_mode == ZOOM_ORIG )  // original size
     {
-        lx_image_view_set_scale( (LxImageView*)mw->img_view, mw->scale, GDK_INTERP_BILINEAR );
-        main_win_center_image( mw );
+        lx_image_view_set_scale( LX_IMAGE_VIEW(this->img_view), this->scale, GDK_INTERP_BILINEAR );
+        main_win_center_image( this );
     }
 
-    lx_image_view_set_pixbuf( (LxImageView*)mw->img_view, mw->pix );
-
-//    while (gtk_events_pending ())
-//        gtk_main_iteration ();
-
-    // build file list
-    char* dir_path = g_path_get_dirname( file_path );
-    image_list_open_dir( mw->img_list, dir_path, NULL );
-    image_list_sort_by_name( mw->img_list, GTK_SORT_DESCENDING );
-    g_free( dir_path );
-
-    char* base_name = g_path_get_basename( file_path );
-    image_list_set_current( mw->img_list, base_name );
-
-    char* disp_name = g_filename_display_name( base_name );
-    g_free( base_name );
-
-    update_title( disp_name, mw );
-    g_free( disp_name );
-
-    main_win_update_zoom_buttons_state(mw);
-
-    return TRUE;
+    lx_image_view_set_pixbuf( LX_IMAGE_VIEW(this->img_view), pix );
 }
 
 void main_win_start_slideshow( MainWin* mw )
 {
     on_slideshow_menu(NULL, mw);
-}
-
-void main_win_close( MainWin* mw )
-{
-    if( mw->animation )
-    {
-        g_object_unref( mw->animation );
-        mw->animation = NULL;
-        if( mw->animation_timeout );
-        {
-            g_source_remove( mw->animation_timeout );
-            mw->animation_timeout = 0;
-        }
-    }
-    else if( mw->pix )
-    {
-        g_object_unref( mw->pix );
-    }
-    mw->pix = NULL;
 }
 
 void main_win_show_error( MainWin* mw, const char* message )
@@ -535,11 +489,8 @@ void main_win_show_error( MainWin* mw, const char* message )
 void on_size_allocate( GtkWidget* widget, GtkAllocation    *allocation )
 {
     GTK_WIDGET_CLASS(main_win_parent_class)->size_allocate( widget, allocation );
-#if GTK_CHECK_VERSION(2, 20, 0)
+
     if(gtk_widget_get_realized (widget) )
-#else
-    if( GTK_WIDGET_REALIZED (widget) )
-#endif
     {
         MainWin* mw = (MainWin*)widget;
 
@@ -587,11 +538,15 @@ gboolean on_win_state_event( GtkWidget* widget, GdkEventWindowState* state )
 
 void main_win_fit_size( MainWin* mw, int width, int height, gboolean can_strech, GdkInterpType type )
 {
-    if( ! mw->pix )
+    ViewModelsImageItem* item = view_models_main_win_vm_get_current_item(mw->view_model);
+
+    if( ! item )
         return;
 
-    int orig_w = gdk_pixbuf_get_width( mw->pix );
-    int orig_h = gdk_pixbuf_get_height( mw->pix );
+    GdkPixbuf* pix = view_models_image_item_get_pixbuf(item);
+
+    gint orig_w = gdk_pixbuf_get_width( pix );
+    gint orig_h = gdk_pixbuf_get_height( pix );
 
     if( can_strech || (orig_w > width || orig_h > height) )
     {
@@ -614,8 +569,16 @@ void main_win_fit_window_size(  MainWin* mw, gboolean can_strech, GdkInterpType 
 {
     mw->zoom_mode = ZOOM_FIT;
 
-    if( mw->pix == NULL )
+    ViewModelsImageItem* item = view_models_main_win_vm_get_current_item(mw->view_model);
+
+    if( ! item )
         return;
+
+    GdkPixbuf* pix = view_models_image_item_get_pixbuf(item);
+
+    if( pix == NULL )
+        return;
+
     main_win_fit_size( mw, mw->scroll_allocation.width, mw->scroll_allocation.height, can_strech, type );
 }
 
@@ -676,45 +639,12 @@ void on_orig_size( GtkToggleButton* btn, MainWin* mw )
 
 void on_prev( GtkWidget* btn, MainWin* mw )
 {
-    const char* name;
-    if( image_list_is_empty( mw->img_list ) )
-        return;
-
-    name = image_list_get_prev( mw->img_list );
-
-    if( ! name && image_list_has_multiple_files( mw->img_list ) )
-    {
-        // FIXME: need to ask user first?
-        name = image_list_get_last( mw->img_list );
-    }
-
-    if( name )
-    {
-        char* file_path = image_list_get_current_file_path( mw->img_list );
-        main_win_open( mw, file_path, mw->zoom_mode );
-        g_free( file_path );
-    }
+    view_models_main_win_vm_prev(mw->view_model);
 }
 
 void on_next( GtkWidget* btn, MainWin* mw )
 {
-    if( image_list_is_empty( mw->img_list ) )
-        return;
-
-    const char* name = image_list_get_next( mw->img_list );
-
-    if( ! name && image_list_has_multiple_files( mw->img_list ) )
-    {
-        // FIXME: need to ask user first?
-        name = image_list_get_first( mw->img_list );
-    }
-
-    if( name )
-    {
-        char* file_path = image_list_get_current_file_path( mw->img_list );
-        main_win_open( mw, file_path, mw->zoom_mode );
-        g_free( file_path );
-    }
+    view_models_main_win_vm_next(mw->view_model);
 }
 
 void cancel_slideshow(MainWin* mw)
@@ -730,7 +660,7 @@ gboolean next_slide(MainWin* mw)
 {
     /* Timeout causes an implicit "Next". */
     if (mw->slideshow_running)
-        on_next( NULL, mw );
+        view_models_main_win_vm_next(mw->view_model);
 
     return mw->slideshow_running;
 }
@@ -762,160 +692,78 @@ void on_slideshow( GtkToggleButton* btn, MainWin* mw )
 
 //////////////////// rotate & flip
 
-static int trans_angle_to_id(int i)
-{
-    if(i == 0) 		return 1;
-    else if(i == 90)	return 6;
-    else if(i == 180)	return 3;
-    else if(i == 270)	return 8;
-    else if(i == -45)	return 7;
-    else if(i == -90)	return 2;
-    else if(i == -135)	return 5;
-    else     /* -180 */ return 4;
-}
-
-static int get_new_angle( int orig_angle, int rotate_angle )
-{
-    // defined in exif.c
-    static int angle_trans_back[] = {0, 0, -90, 180, -180, -135, 90, -45, 270};
-
-    orig_angle = trans_angle_to_id(orig_angle);
-    rotate_angle = trans_angle_to_id(rotate_angle);
-
-    return angle_trans_back[ ExifRotateFlipMapping[orig_angle][rotate_angle] ];
-}
-
-void on_rotate_auto_save( GtkWidget* btn, MainWin* mw )
-{
-    if(pref.auto_save_rotated){
-//      gboolean ask_before_save = pref.ask_before_save;
-//      pref.ask_before_save = FALSE;
-        on_save(btn,mw);
-//      pref.ask_before_save = ask_before_save;
-    }
-}
-
 void on_rotate_clockwise( GtkWidget* btn, MainWin* mw )
 {
     cancel_slideshow(mw);
-    rotate_image( mw, GDK_PIXBUF_ROTATE_CLOCKWISE );
-    mw->rotation_angle = get_new_angle(mw->rotation_angle, 90);
-    on_rotate_auto_save(btn, mw);
+
+    view_models_main_win_vm_rotate_item(mw->view_model, 90);
+    
+    rotate_image( mw );
 }
 
 void on_rotate_counterclockwise( GtkWidget* btn, MainWin* mw )
 {
     cancel_slideshow(mw);
-    rotate_image( mw, GDK_PIXBUF_ROTATE_COUNTERCLOCKWISE );
-    mw->rotation_angle = get_new_angle(mw->rotation_angle, 270);
-    on_rotate_auto_save(btn, mw);
+
+    view_models_main_win_vm_rotate_item(mw->view_model, 270);
+    rotate_image( mw );
 }
 
 void on_flip_vertical( GtkWidget* btn, MainWin* mw )
 {
     cancel_slideshow(mw);
-    rotate_image( mw, -180 );
-    mw->rotation_angle = get_new_angle(mw->rotation_angle, -180);
-    on_rotate_auto_save(btn, mw);
+    
+    view_models_main_win_vm_rotate_item(mw->view_model, -180);
+    rotate_image( mw );
 }
 
 void on_flip_horizontal( GtkWidget* btn, MainWin* mw )
 {
     cancel_slideshow(mw);
-    rotate_image( mw, -90 );
-    mw->rotation_angle = get_new_angle(mw->rotation_angle, -90);
-    on_rotate_auto_save(btn, mw);
+
+    view_models_main_win_vm_rotate_item(mw->view_model, -90);
+    rotate_image( mw );
 }
 
 /* end of rotate & flip */
 
 void on_save_as( GtkWidget* btn, MainWin* mw )
 {
-    char *file, *type;
-
+    GError* error = NULL;
     cancel_slideshow(mw);
-    if( ! mw->pix )
-        return;
 
-    file = get_save_filename( GTK_WINDOW(mw), image_list_get_dir( mw->img_list ), &type );
-    if( file )
-    {
-        char* dir;
-        main_win_save( mw, file, type, TRUE );
-        dir = g_path_get_dirname(file);
-        const char* name = file + strlen(dir) + 1;
+    view_models_main_win_vm_save_as(mw->view_model, &error);
 
-        if( strcmp( image_list_get_dir(mw->img_list), dir ) == 0 )
-        {
-            /* if the saved file is located in the same dir */
-            /* simply add it to image list */
-            image_list_add_sorted( mw->img_list, name, TRUE );
-        }
-        else /* otherwise reload the whole image list. */
-        {
-            /* switch to the dir containing the saved file. */
-            image_list_open_dir( mw->img_list, dir, NULL );
-        }
-        update_title( name, mw );
-        g_free( dir );
-        g_free( file );
-        g_free( type );
-    }
+    if (error != NULL)
+        main_win_show_error(mw, error->message);
 }
 
 void on_save( GtkWidget* btn, MainWin* mw )
 {
+    GError* error = NULL;
     cancel_slideshow(mw);
-    if( ! mw->pix )
-        return;
 
-    char* file_name = g_build_filename( image_list_get_dir( mw->img_list ),
-                                        image_list_get_current( mw->img_list ), NULL );
-    GdkPixbufFormat* info;
-    info = gdk_pixbuf_get_file_info( file_name, NULL, NULL );
-    char* type = gdk_pixbuf_format_get_name( info );
+    view_models_main_win_vm_save(mw->view_model, &error);
 
-    /* Confirm save if requested. */
-    if ((pref.ask_before_save) && ( ! save_confirm(mw, file_name)))
-        return;
-
-    if(strcmp(type,"jpeg")==0)
-    {
-        if(!pref.rotate_exif_only || ExifRotate(file_name, mw->rotation_angle) == FALSE)
-        {
-            // hialan notes:
-            // ExifRotate retrun FALSE when
-            //   1. Can not read file
-            //   2. Exif do not have TAG_ORIENTATION tag
-            //   3. Format unknown
-            // And then we apply rotate_and_save_jpeg_lossless() ,
-            // the result would not effected by EXIF Orientation...
-#ifdef HAVE_LIBJPEG
-            int status = rotate_and_save_jpeg_lossless(file_name,mw->rotation_angle);
-	    if(status != 0)
-            {
-                main_win_show_error( mw, g_strerror(status) );
-            }
-#else
-            main_win_save( mw, file_name, type, pref.ask_before_save );
-#endif
-        }
-    } else
-        main_win_save( mw, file_name, type, pref.ask_before_save );
-    mw->rotation_angle = 0;
-    g_free( file_name );
-    g_free( type );
+    if (error != NULL)
+        main_win_show_error(mw, error->message);
 }
 
 void on_open( GtkWidget* btn, MainWin* mw )
 {
+    GError* error = NULL;
     cancel_slideshow(mw);
-    char* file = get_open_filename( (GtkWindow*)mw, image_list_get_dir( mw->img_list ) );
-    if( file )
+ 
+    view_models_main_win_vm_open(mw->view_model, &error);
+
+    if(error != NULL)
     {
-        main_win_open( mw, file, ZOOM_NONE );
-        g_free( file );
+        main_win_show_error(mw, error->message);
+        g_error_free(error);
+        return;
     }
+
+    main_win_update_zoom_buttons_state(mw);
 }
 
 void on_zoom_in( GtkWidget* btn, MainWin* mw )
@@ -952,8 +800,11 @@ gboolean on_button_press( GtkWidget* widget, GdkEventButton* evt, MainWin* mw )
     {
         if( evt->button == 1 )    // left button
         {
-            if( ! mw->pix )
+            ViewModelsImageItem* item = view_models_main_win_vm_get_current_item(mw->view_model);
+
+            if( ! item )
                 return FALSE;
+
             mw->dragging = TRUE;
             gdk_window_get_device_position ( gtk_widget_get_window(GTK_WIDGET(mw)), 
                                              evt->device,
@@ -971,6 +822,7 @@ gboolean on_button_press( GtkWidget* widget, GdkEventButton* evt, MainWin* mw )
     {
          on_full_screen( NULL, mw );
     }
+
     return FALSE;
 }
 
@@ -1017,15 +869,9 @@ gboolean on_mouse_move( GtkWidget* widget, GdkEventMotion* evt, MainWin* mw )
         }
     }
 
-#if GTK_CHECK_VERSION(2, 14, 0)
     gdouble vadj_page_size = gtk_adjustment_get_page_size(vadj);
     gdouble vadj_lower = gtk_adjustment_get_lower(vadj);
     gdouble vadj_upper = gtk_adjustment_get_upper(vadj);
-#else
-    gdouble vadj_page_size = vadj->page_size;
-    gdouble vadj_lower = vadj->lower;
-    gdouble vadj_upper = vadj->upper;
-#endif
 
     if( ABS(dy) > 4 )
     {
@@ -1228,33 +1074,17 @@ void main_win_center_image( MainWin* mw )
         gtk_adjustment_set_value(vadj, ( vadj_upper - vadj_page_size ) / 2 );
 }
 
-void rotate_image( MainWin* mw, int angle )
+//TODO: handler to react to change of item
+void rotate_image( MainWin* mw )
 {
-    GdkPixbuf* rpix = NULL;
+    ViewModelsImageItem* item = view_models_main_win_vm_get_current_item(mw->view_model);
 
-    if( ! mw->pix )
+    if(!item)
         return;
 
-    if(angle > 0)
-    {
-        rpix = gdk_pixbuf_rotate_simple( mw->pix, angle );
-    }
-    else
-    {
-        if(angle == -90)
-            rpix = gdk_pixbuf_flip( mw->pix, TRUE );
-        else if(angle == -180)
-            rpix = gdk_pixbuf_flip( mw->pix, FALSE );
-    }
+    GdkPixbuf* pix = view_models_image_item_get_pixbuf(item);
 
-    if (!rpix) {
-        return;
-    }
-
-    g_object_unref( mw->pix );
-
-    mw->pix = rpix;
-    lx_image_view_set_pixbuf( (LxImageView*)mw->img_view, mw->pix );
+    lx_image_view_set_pixbuf( (LxImageView*)mw->img_view, pix );
 
     if( mw->zoom_mode == ZOOM_FIT )
         main_win_fit_window_size( mw, FALSE, GDK_INTERP_BILINEAR );
@@ -1276,135 +1106,25 @@ gboolean main_win_scale_image( MainWin* mw, double new_scale, GdkInterpType type
     return TRUE;
 }
 
-gboolean save_confirm( MainWin* mw, const char* file_path )
-{
-    if( g_file_test( file_path, G_FILE_TEST_EXISTS ) )
-    {
-        GtkWidget* dlg = gtk_message_dialog_new( (GtkWindow*)mw,
-                GTK_DIALOG_MODAL,
-                GTK_MESSAGE_QUESTION,
-                GTK_BUTTONS_YES_NO,
-                _("The file name you selected already exists.\nDo you want to overwrite existing file?\n(Warning: The quality of original image might be lost)") );
-        if( gtk_dialog_run( (GtkDialog*)dlg ) != GTK_RESPONSE_YES )
-        {
-            gtk_widget_destroy( dlg );
-            return FALSE;
-        }
-        gtk_widget_destroy( dlg );
-    }
-    return TRUE;
-}
-
 gboolean main_win_save( MainWin* mw, const char* file_path, const char* type, gboolean confirm )
 {
-    gboolean result1,gdk_save_supported;
-    GSList *gdk_formats;
-    GSList *gdk_formats_i;
-    if( ! mw->pix )
-        return FALSE;
+    GError* error;
+    gboolean result = view_models_main_win_vm_save(mw->view_model, &error);
 
-    /* detect if the current type can be save by gdk_pixbuf_save() */
-    gdk_save_supported = FALSE;
-    gdk_formats = gdk_pixbuf_get_formats();
-    for (gdk_formats_i = gdk_formats; gdk_formats_i;
-         gdk_formats_i = g_slist_next(gdk_formats_i))
+    if( ! result )
     {
-        GdkPixbufFormat *data;
-        data = gdk_formats_i->data;
-        if (gdk_pixbuf_format_is_writable(data))
-        {
-            if ( strcmp(type, gdk_pixbuf_format_get_name(data))==0)
-            {
-                gdk_save_supported = TRUE;
-                break;
-            }
-        }
-    }
-    g_slist_free (gdk_formats);
-
-    GError* err = NULL;
-    if (!gdk_save_supported)
-    {
-        main_win_show_error( mw, _("Writing this image format is not supported.") );
+        main_win_show_error( mw, error->message );
         return FALSE;
     }
-    if( strcmp( type, "jpeg" ) == 0 )
-    {
-        char tmp[32];
-        g_sprintf(tmp, "%d", pref.jpg_quality);
-        result1 = gdk_pixbuf_save( mw->pix, file_path, type, &err, "quality", tmp, NULL );
-    }
-    else if( strcmp( type, "png" ) == 0 )
-    {
-        char tmp[32];
-        g_sprintf(tmp, "%d", pref.png_compression);
-        result1 = gdk_pixbuf_save( mw->pix, file_path, type, &err, "compression", tmp, NULL );
-    }
-    else
-        result1 = gdk_pixbuf_save( mw->pix, file_path, type, &err, NULL );
-    if( ! result1 )
-    {
-        main_win_show_error( mw, err->message );
-        return FALSE;
-    }
-    return TRUE;
 }
 
 void on_delete( GtkWidget* btn, MainWin* mw )
 {
+    GError* error = NULL;
     cancel_slideshow(mw);
-    char* file_path = image_list_get_current_file_path( mw->img_list );
-    if( file_path )
-    {
-        int resp = GTK_RESPONSE_YES;
-	    if ( pref.ask_before_delete )
-	    {
-            GtkWidget* dlg = gtk_message_dialog_new( (GtkWindow*)mw,
-                                                     GTK_DIALOG_MODAL,
-                                                     GTK_MESSAGE_QUESTION,
-                                                     GTK_BUTTONS_YES_NO,
-                    _("Are you sure you want to delete current file?\n\nWarning: Once deleted, the file cannot be recovered.") );
-            resp = gtk_dialog_run( (GtkDialog*)dlg );
-            gtk_widget_destroy( dlg );
-        }
 
-	    if( resp == GTK_RESPONSE_YES )
-        {
-            const char* name = image_list_get_current( mw->img_list );
-
-	        if( g_unlink( file_path ) != 0 )
-            {
-		        main_win_show_error( mw, g_strerror(errno) );
-            }
-	        else
-	        {
-		        const char* next_name = image_list_get_next( mw->img_list );
-		        
-                if( ! next_name )
-                {
-		            next_name = image_list_get_prev( mw->img_list );
-                }
-		        else
-		        {
-		            char* next_file_path = image_list_get_current_file_path( mw->img_list );
-		            main_win_open( mw, next_file_path, ZOOM_FIT );
-		            g_free( next_file_path );
-		        }
-
-		        image_list_remove ( mw->img_list, name );
-
-		        if ( ! next_name )
-		        {
-		            main_win_close( mw );
-		            image_list_close( mw->img_list );
-		            lx_image_view_set_pixbuf( (LxImageView*)mw->img_view, NULL );
-		            gtk_window_set_title( (GtkWindow*) mw, _("Image Viewer"));
-		        }
-	        }
-        }
-
-	    g_free( file_path );
-    }
+    if(!view_models_main_win_vm_delete(mw->view_model, &error))
+        main_win_show_error( mw, error->message );
 }
 
 void on_toggle_toolbar( GtkMenuItem* item, MainWin* mw )
@@ -1467,14 +1187,6 @@ void show_popup_menu( MainWin* mw, GdkEventButton* evt )
     GtkAccelGroup* accel_group = gtk_accel_group_new();
     GtkMenuShell* popup = (GtkMenuShell*)ptk_menu_new_from_data( menu_def, mw, accel_group );
 
-    if( mw->animation )
-    {
-        gtk_widget_set_sensitive( rotate_ccw, FALSE );
-        gtk_widget_set_sensitive( rotate_cw, FALSE );
-        gtk_widget_set_sensitive( flip_h, FALSE );
-        gtk_widget_set_sensitive( flip_v, FALSE );
-    }
-
     gtk_widget_show_all( (GtkWidget*)popup );
     g_signal_connect( popup, "selection-done", G_CALLBACK(gtk_widget_destroy), NULL );
 
@@ -1492,6 +1204,7 @@ void on_about( GtkWidget* menu, MainWin* mw )
         "Marty Jack <martyj19@comcast.net>",
         "Louis Casillas <oxaric@gmail.com>",
         "Will Davies",
+        "Vladyslav Stovmanenko <flaviusglamfenix@gmail.com>",
         _(" * Refer to source code of EOG image viewer and GThumb"),
         NULL
     };
@@ -1543,7 +1256,18 @@ void on_drag_data_received( GtkWidget* widget, GdkDragContext *drag_context,
     }
     if( file )
     {
-        main_win_open( mw, file, ZOOM_FIT );
+        GError* error = NULL;
+        view_models_main_win_vm_open(mw->view_model, &error);
+
+        if(error != NULL)
+        {
+            main_win_show_error(mw, error->message);
+            g_error_free(error);
+            return;
+        }
+
+        mw->zoom_mode = ZOOM_NONE;
+
         g_free( file );
     }
 }
@@ -1573,8 +1297,11 @@ static void main_win_set_zoom_mode(MainWin* mw, ZoomMode mode)
     if (mode == ZOOM_ORIG)
     {
         mw->scale = 1.0;
-        if (!mw->pix)
-           return;
+        
+        ViewModelsImageItem* item = view_models_main_win_vm_get_current_item(mw->view_model);
+
+        if( ! item )
+            return;
 
         update_title(NULL, mw);
 

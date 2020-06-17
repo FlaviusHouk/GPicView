@@ -25,6 +25,7 @@
 
 #include "image-view.h"
 #include "image-list.h"
+#include "ViewModel/main-win-vm.h"
 
 /**
     @author PCMan (Hong Jen Yee) <pcman.tw@gmail.com>
@@ -54,11 +55,6 @@ typedef struct _MainWin
 {
     GtkWindow parent;
 
-    GdkPixbuf* pix;
-    GdkPixbufAnimation* animation;
-    GdkPixbufAnimationIter* animation_iter;
-    guint animation_timeout;
-
     GtkWidget* img_view;
     GtkWidget* scroll;
     GtkWidget* evt_box;
@@ -87,13 +83,10 @@ typedef struct _MainWin
     double scale;
     int drag_old_x;
     int drag_old_y;
-    int rotation_angle;
-    ImageList* img_list;
+    ViewModelsMainWinVM* view_model;
 } MainWin;
 
 GtkWidget* main_win_new();
-
-gboolean main_win_open( MainWin* mw, const char* file_path, ZoomMode zoom );
 
 void main_win_start_slideshow( MainWin* mw );
 
@@ -112,6 +105,12 @@ void main_win_center_image( MainWin* mw );
 gboolean main_win_scale_image(  MainWin* mw, double new_scale, GdkInterpType type );
 
 void main_win_set_dynamic_style (MainWin* mw, GtkStyleProvider* provider);
+
+/*ViewModelsMainWinVM*
+main_win_get_view_model(MainWin* this);
+
+void
+main_win_set_view_model(MainWin* this, ViewModelsMainWinVM* view_model);*/
 
 GType main_win_get_type();
 

@@ -98,18 +98,26 @@ int main(int argc, char *argv[])
         if( G_UNLIKELY( *files[0] != '/' && strstr( files[0], "://" )) )    // This is an URI
         {
             char* path = g_filename_from_uri( files[0], NULL, NULL );
-            main_win_open( win, path, ZOOM_NONE );
-            g_free( path );
+            view_models_main_win_vm_open_file( win->view_model, path, &error);
+            g_free( path );            
         }
         else
-            main_win_open( win, files[0], ZOOM_NONE );
+        {
+            view_models_main_win_vm_open_file(win->view_model, files[0], &error);
+        }
 
         if (should_start_slideshow)
             main_win_start_slideshow ( win );
     }
     else
     {
-        main_win_open( win, ".", ZOOM_NONE );
+        view_models_main_win_vm_open_file( win->view_model, ".", &error);
+    }
+
+    if(error != NULL)
+    {
+        main_win_show_error(win, error->message);
+        return 1;
     }
 
     gtk_main();

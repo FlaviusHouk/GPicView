@@ -81,6 +81,7 @@ char* get_open_filename( GtkWindow* parent, const char* cwd )
     if( gtk_dialog_run( (GtkDialog*)dlg ) == GTK_RESPONSE_OK )
         file = gtk_file_chooser_get_filename( dlg );
     gtk_widget_destroy( (GtkWidget*)dlg );
+
     return file;
 }
 

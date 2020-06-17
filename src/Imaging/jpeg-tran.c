@@ -55,6 +55,8 @@ int jpegtran (char *input_filename, char *output_filename, JXFORM_CODE  transfor
 
 int rotate_and_save_jpeg_lossless(char *  filename,int angle);
 
+extern int ExifRotate(const char * fname, int new_angle);
+
 int
 jpegtran (char        *input_filename,
       char        *output_filename,
@@ -194,6 +196,8 @@ main (int    argc,
 
 int rotate_and_save_jpeg_lossless(char *  filename,int angle)
 {
+    if(ExifRotate(filename, angle) == FALSE)
+        return -1;
 
     char *tmpfilename;
     int tmpfilefd;
