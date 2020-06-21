@@ -12,7 +12,8 @@ pixmapsdir = $(gpicviewdir)/pixmaps
 
 ui_in_files = \
 	pref-dlg.ui \
-	nav_bar.ui
+	nav_bar.ui \
+	styles.css
 ui_DATA = $(ui_in_files)
 uidir=$(datadir)/gpicview/ui
 

@@ -253,8 +253,8 @@ void main_win_init( MainWin*mw )
     //gtk_widget_modify_bg( mw->evt_box, GTK_STATE_NORMAL, &pref.bg );
     gtk_widget_set_name(mw->evt_box, "ImageArea");
 
-    GtkStyleProvider* provider = GTK_STYLE_PROVIDER(gtk_css_provider_new());
     GError* err = NULL;
+    GtkStyleProvider* provider = GTK_STYLE_PROVIDER(gtk_css_provider_new());
     gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(provider),
                                     pref_build_dynamic_css(&pref),
                                     -1,
@@ -262,11 +262,28 @@ void main_win_init( MainWin*mw )
 
     if(G_LIKELY(err))
     {
-        g_printerr("Error: %d.\n%s\n", err->code, err->message);
-        g_assert(FALSE);
+        g_printerr("Cannot parse dynamic css: %d.\n%s\n", err->code, err->message);
+        return;
     }
 
     main_win_set_dynamic_style(mw, provider);
+
+    GdkDisplay *display;
+    GdkScreen *screen;
+
+    provider = GTK_STYLE_PROVIDER(gtk_css_provider_new ());
+    display = gdk_display_get_default ();
+    screen = gdk_display_get_default_screen (display);
+    gtk_style_context_add_provider_for_screen (screen, GTK_STYLE_PROVIDER (provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+
+    gboolean val = gtk_css_provider_load_from_path(GTK_CSS_PROVIDER(provider), PACKAGE_DATA_DIR "/gpicview/ui/styles.css", &err);
+    g_object_unref (provider);
+
+    if(G_LIKELY(err))
+    {
+        g_printerr("Cannot load application css: %d.\n%s\n", err->code, err->message);
+        return;
+    }
 
     mw->img_view = lx_image_view_new();
     gtk_container_add( (GtkContainer*)mw->evt_box, (GtkWidget*)mw->img_view);
@@ -317,7 +334,7 @@ void main_win_init( MainWin*mw )
 
 void create_nav_bar( MainWin* mw, GtkWidget* box )
 {
-    GtkBuilder* builder = gtk_builder_new_from_file ("/home/Flavius/C/LXDE/GPicView/data/nav_bar.ui");
+    GtkBuilder* builder = gtk_builder_new_from_file (PACKAGE_DATA_DIR "/gpicview/ui/nav_bar.ui");
     mw->nav_bar = GTK_WIDGET(gtk_builder_get_object(builder, "nav_bar"));
 
     add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "go_prev_butt")), G_CALLBACK(on_prev), FALSE );
@@ -362,7 +379,13 @@ void create_nav_bar( MainWin* mw, GtkWidget* box )
     add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "pref_butt")), G_CALLBACK(on_preference), FALSE );
     add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "exit_butt")), G_CALLBACK(on_quit), FALSE );
 
-    gtk_box_pack_start( GTK_BOX(box), mw->nav_bar, FALSE, TRUE, 2 );
+    GtkWidget* holder = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_name(holder, "NavBarParent");
+
+    gtk_box_pack_start(GTK_BOX(holder), mw->nav_bar, FALSE, FALSE, 0);
+    gtk_box_set_homogeneous(GTK_BOX(holder), TRUE);
+
+    gtk_box_pack_start( GTK_BOX(box), holder, FALSE, TRUE, 2 );
 }
 
 gboolean on_delete_event( GtkWidget* widget, GdkEventAny* evt )
