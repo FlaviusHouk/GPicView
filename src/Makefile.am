@@ -15,7 +15,7 @@ gpicview_SOURCES = \
 	image-list.c \
 	View/main-win.c \
 	View/image-view.c \
-	working-area.c \
+	View/working-area.c \
 	ptk-menu.c \
 	View/file-dlgs.c \
 	Imaging/jpeg-tran.c \
@@ -36,7 +36,7 @@ noinst_HEADERS = \
 	image-list.h \
 	View/main-win.h \
 	View/image-view.h \
-	working-area.h \
+	View/working-area.h \
 	ptk-menu.h \
 	View/file-dlgs.h \
 	Imaging/jpeg-tran.h \

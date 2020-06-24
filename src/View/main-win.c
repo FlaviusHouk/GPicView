@@ -26,6 +26,9 @@
 
 #include "ViewModel/image-item.h"
 
+#include "View/working-area.h"
+#include "View/file-dlgs.h"
+
 #include <glib/gi18n.h>
 #include <gdk/gdkkeysyms.h>
 #include <gdk/gdkkeysyms-compat.h>
@@ -38,11 +41,7 @@
 #include "pref.h"
 
 #include "image-view.h"
-#include "image-list.h"
-#include "working-area.h"
 #include "ptk-menu.h"
-#include "file-dlgs.h"
-#include "Imaging/jpeg-tran.h"
 
 /* For drag & drop */
 static GtkTargetEntry drop_targets[] =
@@ -114,6 +113,7 @@ static void main_win_set_zoom_scale(MainWin* mw, double scale);
 static void main_win_set_zoom_mode(MainWin* mw, ZoomMode mode);
 static void main_win_update_zoom_buttons_state(MainWin* mw);
 static void main_win_adjust_zoom(MainWin* this, ViewModelsImageItem* item);
+static void main_win_set_static_styles(MainWin* this);
 
 // Begin of GObject-related stuff
 
@@ -267,23 +267,7 @@ void main_win_init( MainWin*mw )
     }
 
     main_win_set_dynamic_style(mw, provider);
-
-    GdkDisplay *display;
-    GdkScreen *screen;
-
-    provider = GTK_STYLE_PROVIDER(gtk_css_provider_new ());
-    display = gdk_display_get_default ();
-    screen = gdk_display_get_default_screen (display);
-    gtk_style_context_add_provider_for_screen (screen, GTK_STYLE_PROVIDER (provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-
-    gboolean val = gtk_css_provider_load_from_path(GTK_CSS_PROVIDER(provider), PACKAGE_DATA_DIR "/gpicview/ui/styles.css", &err);
-    g_object_unref (provider);
-
-    if(G_LIKELY(err))
-    {
-        g_printerr("Cannot load application css: %d.\n%s\n", err->code, err->message);
-        return;
-    }
+    main_win_set_static_styles(mw);
 
     mw->img_view = lx_image_view_new();
     gtk_container_add( (GtkContainer*)mw->evt_box, (GtkWidget*)mw->img_view);
@@ -385,7 +369,7 @@ void create_nav_bar( MainWin* mw, GtkWidget* box )
     gtk_box_pack_start(GTK_BOX(holder), mw->nav_bar, FALSE, FALSE, 0);
     gtk_box_set_homogeneous(GTK_BOX(holder), TRUE);
 
-    gtk_box_pack_start( GTK_BOX(box), holder, FALSE, TRUE, 2 );
+    gtk_box_pack_start( GTK_BOX(box), holder, FALSE, TRUE, 0 );
 }
 
 gboolean on_delete_event( GtkWidget* widget, GdkEventAny* evt )
@@ -1377,6 +1361,27 @@ void main_win_set_dynamic_style (MainWin* mw, GtkStyleProvider* provider)
     if(G_LIKELY(provider))
     {
         gtk_style_context_add_provider(context, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    }
+}
+
+static void main_win_set_static_styles(MainWin* this)
+{
+    GdkDisplay *display;
+    GdkScreen *screen;
+    GError* err = NULL;
+
+    GtkStyleProvider* provider = GTK_STYLE_PROVIDER(gtk_css_provider_new ());
+    display = gdk_display_get_default ();
+    screen = gdk_display_get_default_screen (display);
+    gtk_style_context_add_provider_for_screen (screen, GTK_STYLE_PROVIDER (provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+
+    gboolean val = gtk_css_provider_load_from_path(GTK_CSS_PROVIDER(provider), PACKAGE_DATA_DIR "/gpicview/ui/styles.css", &err);
+    g_object_unref (provider);
+
+    if(G_LIKELY(err))
+    {
+        g_printerr("Cannot load application css: %d.\n%s\n", err->code, err->message);
+        return;
     }
 }
 
