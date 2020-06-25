@@ -28,10 +28,12 @@
 
 #include "pref.h"
 #include "View/main-win.h"
+#include "ViewModel/dialog_service.h"
 
-static char** files = NULL;
+static gchar** files = NULL;
 static gboolean should_display_version = FALSE;
 static gboolean should_start_slideshow = FALSE;
+static GtkApplication* app;
 
 static GOptionEntry opt_entries[] =
 {
@@ -51,46 +53,24 @@ on_main_window_close(GtkWidget *object, gpointer   user_data)
     gtk_main_quit();
 }
 
-int main(int argc, char *argv[])
+static GtkWindow*
+gpicview_get_active_window()
 {
-    GError *error = NULL;
-    GOptionContext *context;
-    MainWin* win;
+    return gtk_application_get_active_window(app);
+}
 
-#ifdef ENABLE_NLS
-    bindtextdomain ( GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR );
-    bind_textdomain_codeset ( GETTEXT_PACKAGE, "UTF-8" );
-    textdomain ( GETTEXT_PACKAGE );
-#endif
-
-    context = g_option_context_new ("- simple image viewer");
-    g_option_context_add_main_entries (context, opt_entries, GETTEXT_PACKAGE);
-    g_option_context_add_group (context, gtk_get_option_group (TRUE));
-    if ( !g_option_context_parse (context, &argc, &argv, &error) )
-    {
-        g_print( "option parsing failed: %s\n", error->message);
-        return 1;
-    }
-
-    if( should_display_version )
-    {
-        printf( "gpicview %s\n", VERSION );
-        return 0;
-    }
-
+static void
+gpicview_activate(GApplication* app, gpointer user_data)
+{
     gtk_icon_theme_append_search_path(gtk_icon_theme_get_default(), PIXMAP_DIR);
 
-    load_preferences();
-
-    /* Allocate and show the window.
-     * We must show the window now in case the file open needs to put up an error dialog. */
-    win = (MainWin*)main_win_new();
-    gtk_widget_show( GTK_WIDGET(win) );
-
-    g_signal_connect(win, "destroy", G_CALLBACK(on_main_window_close), NULL);
+    MainWin* win = MAIN_WIN(main_win_new());
+    gtk_application_add_window(app, GTK_WINDOW(win));
 
     if ( pref.open_maximized )
-        gtk_window_maximize( (GtkWindow*)win );
+        gtk_window_maximize( GTK_WINDOW(win) );
+
+    GError *error = NULL;
 
     // FIXME: need to process multiple files...
     if( files )
@@ -120,7 +100,44 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    gtk_main();
+    gtk_widget_show( GTK_WIDGET(win) );
+}
+
+static gint
+gpicview_handle_local_options(GApplication *application,
+                              GVariantDict *options,
+                              gpointer      user_data)
+{
+    if( should_display_version )
+    {
+        g_print( "gpicview %s\n", VERSION );
+        return 0;
+    }
+
+    return -1;
+}
+
+int main(int argc, char *argv[])
+{
+    GOptionContext *context;
+
+    app = gtk_application_new("org.lxde.gpicview", G_APPLICATION_FLAGS_NONE);
+    g_application_add_main_option_entries(app, opt_entries);
+
+#ifdef ENABLE_NLS
+    bindtextdomain ( GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR );
+    bind_textdomain_codeset ( GETTEXT_PACKAGE, "UTF-8" );
+    textdomain ( GETTEXT_PACKAGE );
+#endif
+
+    dialog_service_init();
+
+    g_signal_connect(app, "activate", G_CALLBACK(gpicview_activate), NULL);
+    g_signal_connect(app, "handle-local-options", G_CALLBACK(gpicview_handle_local_options), NULL);
+
+    load_preferences();
+
+    g_application_run(app, argc, argv);
 
     save_preferences();
 
