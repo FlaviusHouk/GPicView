@@ -465,3 +465,9 @@ CLASS_PREFIX(rotate_item)(ViewModelsMainWinVM* this, gint angle)
     if(pref.auto_save_rotated)
         view_models_main_win_vm_save(this, &innerError);
 }
+
+void
+CLASS_PREFIX(edit_prefs)(ViewModelsMainWinVM* this)
+{
+    dialog_service_show_dialog(GPICVIEW_PREF_WINDOW, NULL);
+}

@@ -754,7 +754,7 @@ void on_zoom_out( GtkWidget* btn, MainWin* mw )
 
 void on_preference( GtkWidget* btn, MainWin* mw )
 {
-    edit_preferences( (GtkWindow*)mw );
+    view_models_main_win_vm_edit_prefs(mw->view_model);
 }
 
 void on_quit( GtkWidget* btn, MainWin* mw )
@@ -1003,7 +1003,7 @@ on_key_press_event(GtkWidget* widget,
             break;
         case GDK_p:
         case GDK_P:
-            on_preference( NULL, mw );
+            view_models_main_win_vm_edit_prefs(mw->view_model);
 	    break;
         case GDK_t:
         case GDK_T:

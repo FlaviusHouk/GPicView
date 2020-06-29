@@ -140,6 +140,14 @@ gpicview_handle_local_options(GApplication *application,
     return -1;
 }
 
+static gboolean
+gpicview_run_pref_dialog(GObject* view_model, gpointer parent)
+{
+    edit_preferences(GTK_WINDOW(parent));
+
+    return TRUE;
+}
+
 int main(int argc, char *argv[])
 {
     GOptionContext *context;
@@ -159,6 +167,8 @@ int main(int argc, char *argv[])
     dialog_service_register_save_file_dialog(get_save_filename);
     dialog_service_register_yes_no_dialog(ask_yes_no_question);
     dialog_service_register_message_box(gpicview_show_message);
+    dialog_service_register_dialog(GPICVIEW_PREF_WINDOW, gpicview_run_pref_dialog);
+
 
     g_signal_connect(app, "activate", G_CALLBACK(gpicview_activate), NULL);
     g_signal_connect(app, "handle-local-options", G_CALLBACK(gpicview_handle_local_options), NULL);

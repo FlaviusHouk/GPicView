@@ -1,5 +1,5 @@
-#ifndef MAIN_WIN_VM
-#define MAIN_WIM_VM
+#ifndef _MAIN_WIN_VM_H_
+#define _MAIN_WIM_VM_H_
 
 #include "image-item.h"
 
@@ -7,6 +7,12 @@
 #include "gdk/gdk.h"
 
 G_BEGIN_DECLS
+
+enum
+{
+    GPICVIEW_PREF_WINDOW,
+    GPICVIEW_DIALOGS_COUNT
+};
 
 enum
 {
@@ -51,6 +57,9 @@ view_models_main_win_vm_next(ViewModelsMainWinVM* this);
 
 void
 view_models_main_win_vm_rotate_item(ViewModelsMainWinVM* this, gint angle);
+
+void
+view_models_main_win_vm_edit_prefs(ViewModelsMainWinVM* this);
 
 G_END_DECLS
 
