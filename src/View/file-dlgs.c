@@ -45,7 +45,7 @@ static void on_update_preview( GtkFileChooser *chooser, GtkImage* img )
     }
 }
 
-char* get_open_filename( GtkWindow* parent, const char* cwd )
+GPtrArray* get_open_filename( const gchar* cwd, GtkWindow* parent )
 {
     char* file = NULL;
     GtkFileChooser* dlg = 
@@ -82,7 +82,11 @@ char* get_open_filename( GtkWindow* parent, const char* cwd )
         file = gtk_file_chooser_get_filename( dlg );
     gtk_widget_destroy( (GtkWidget*)dlg );
 
-    return file;
+    GPtrArray* result = g_ptr_array_new();
+
+    g_ptr_array_add(result, file);
+
+    return result;
 }
 
 static void on_int_val_changed(GtkRange* range, gpointer user_data)
@@ -150,7 +154,7 @@ static void on_file_save_filter_changed(GObject* obj, GParamSpec* pspec, gpointe
     }
 }
 
-char* get_save_filename( GtkWindow* parent, const char* cwd, char** type )
+char* get_save_filename( const gchar* cwd, gchar** type, GtkWindow* parent )
 {
     char* file = NULL;
     GtkFileChooser* dlg = 

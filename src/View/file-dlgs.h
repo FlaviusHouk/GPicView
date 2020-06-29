@@ -26,8 +26,8 @@
 
 G_BEGIN_DECLS
 
-gchar* get_open_filename( GtkWindow* parent, const gchar* cwd );
-gchar* get_save_filename( GtkWindow* parent, const gchar* cwd, gchar** type );
+GPtrArray* get_open_filename( const gchar* cwd, GtkWindow* parent );
+gchar* get_save_filename( const gchar* cwd, gchar** type, GtkWindow* parent );
 
 G_END_DECLS
 

@@ -94,8 +94,6 @@ void main_win_close( MainWin* mw );
 
 gboolean main_win_save( MainWin* mw, const char* file_path, const char* type, gboolean confirm );
 
-void main_win_show_error( MainWin* mw, const char* message );
-
 void main_win_fit_size( MainWin* mw, int width, int height, gboolean can_strech, GdkInterpType type );
 
 void main_win_fit_window_size( MainWin* mw, gboolean can_strech, GdkInterpType type );

@@ -10,13 +10,16 @@ void
 dialog_service_init();
 
 void
-dialog_service_register_open_file_dialog(GPtrArray* (*open_file)(gchar* initial_folder, gpointer parent));
+dialog_service_register_open_file_dialog(GPtrArray* (*open_file)(const gchar* initial_folder, gpointer parent));
 
 void
-dialog_service_register_save_file_dialog(gchar* (*save_file)(gchar* initial_folder, gchar** types, gpointer parent));
+dialog_service_register_save_file_dialog(gchar* (*save_file)(const gchar* initial_folder, gchar** types, gpointer parent));
 
-void 
-dialog_service_register_yes_no_dialog(gboolean (*yes_no_dialog)(gchar* msg, gpointer parent));
+void
+dialog_service_register_yes_no_dialog(gboolean (*yes_no_dialog)(const gchar* msg, gpointer parent));
+
+void
+dialog_service_register_message_box(void (*msg_box)(const gchar* msg, gpointer parent));
 
 void
 dialog_service_register_dialog(gint dialog_id, WindowRunner window_runner);
@@ -25,13 +28,16 @@ void
 dialog_service_register_parent_resolver(gpointer (*resolver)(gpointer user_data));
 
 GPtrArray* 
-dialog_service_open_file (gchar* initial_folder);
+dialog_service_open_file (const gchar* initial_folder);
 
 gchar* 
-dialog_service_save_file (gchar* initial_folder, gchar** types);
+dialog_service_save_file (const gchar* initial_folder, gchar** types);
 
 gboolean 
-dialog_service_yes_no_dialog(gchar* msg);
+dialog_service_yes_no_dialog(const gchar* msg);
+
+void
+dialog_service_show_message(const gchar* msg);
 
 gboolean
 dialog_service_show_dialog(gint dialog_id, GObject* view_model);

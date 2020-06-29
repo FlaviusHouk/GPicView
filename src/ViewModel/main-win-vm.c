@@ -7,6 +7,8 @@
 #include "pref.h"
 #include "image-list.h"
 
+#include "dialog_service.h"
+
 //Temp here
 #include "Imaging/jpeg-tran.h"
 
@@ -23,6 +25,8 @@ static gboolean
 CLASS_PREFIX(save_internal)(ViewModelsMainWinVM* this, gchar* file_path, gchar* type, GError** error);
 
 #define FILE_NAME_IS_NULL_MSG "File name is NULL. Cannot open."
+#define FILE_OVERRIDING_MSG _("The file name you selected already exists.\nDo you want to overwrite existing file?\n(Warning: The quality of original image might be lost)")
+#define FILE_DELETE_MSG _("Are you sure you want to delete current file?\n\nWarning: Once deleted, the file cannot be recovered.")
 
 static GParamSpec *obj_properties[N_PROPS] = { NULL, };
 
@@ -33,7 +37,6 @@ typedef struct _ViewModelsMainWinVM
     ViewModelsImageItem* current_item;
 
     ImageList* image_list;
-    DialogService* dialog_service;
 };
 
 G_DEFINE_TYPE(ViewModelsMainWinVM, view_models_main_win_vm, G_TYPE_OBJECT)
@@ -107,12 +110,11 @@ CLASS_PREFIX(open_file_internal)(ViewModelsMainWinVM* this, const gchar* file_na
 }
 
 ViewModelsMainWinVM*
-CLASS_PREFIX(new)(DialogService* dialog_service)
+CLASS_PREFIX(new)()
 {
     ViewModelsMainWinVM* this = VIEW_MODELS_MAIN_WIN_VM(g_object_new(VIEWMODELS_TYPE_MAIN_WIN_VM, NULL));
     
     this->image_list = image_list_new();
-    this->dialog_service = dialog_service;
     
     return this;
 }
@@ -132,8 +134,7 @@ CLASS_PREFIX(open)(ViewModelsMainWinVM* this, GError** error)
 {
     GError* innerError = NULL;
 
-    GPtrArray* files = this->dialog_service->open_file(image_list_get_dir(this->image_list),
-                                                       this->dialog_service->user_data);
+    GPtrArray* files = dialog_service_open_file(image_list_get_dir(this->image_list));
 
     //TODO: add multiple items.
     gchar* file_path = g_ptr_array_index(files, 0);
@@ -170,8 +171,7 @@ CLASS_PREFIX(save)(ViewModelsMainWinVM* this, GError** error)
     /* Confirm save if requested. */
     if (pref.ask_before_save && g_file_test( file_name, G_FILE_TEST_EXISTS ))
     {
-        if(!this->dialog_service->yes_no_dialog(_("The file name you selected already exists.\nDo you want to overwrite existing file?\n(Warning: The quality of original image might be lost)"),
-                                                this->dialog_service->user_data))
+        if(!dialog_service_yes_no_dialog(FILE_OVERRIDING_MSG))
             return FALSE;
     }
 
@@ -226,20 +226,25 @@ CLASS_PREFIX(save)(ViewModelsMainWinVM* this, GError** error)
 gboolean
 CLASS_PREFIX(save_as)(ViewModelsMainWinVM* this, GError** error)
 {
-    GError* innerError = NULL;
+    GError* inner_error = NULL;
     ViewModelsImageItem* item = view_models_main_win_vm_get_current_item(this);
 
     if( ! item )
         return FALSE;
 
     gchar* type;
-    gchar* file = this->dialog_service->save_file( image_list_get_dir( this->image_list ), 
-                                                   &type,
-                                                   this->dialog_service->user_data );
+    gchar* file = dialog_service_save_file ( image_list_get_dir( this->image_list ), 
+                                             &type );
     if( file )
     {
         char* dir;
-        view_models_main_win_vm_save_internal(this, file, type, &innerError);
+        view_models_main_win_vm_save_internal(this, file, type, &inner_error);
+
+        if(inner_error)
+        {
+            g_propagate_error(error, inner_error);
+            return FALSE;
+        }
         
         dir = g_path_get_dirname(file);
         const char* name = file + strlen(dir) + 1;
@@ -277,10 +282,7 @@ CLASS_PREFIX(delete)(ViewModelsMainWinVM* this, GError** error)
     {
         gboolean resp = TRUE;
 	    if ( pref.ask_before_delete )
-	    {
-            resp = this->dialog_service->yes_no_dialog(_("Are you sure you want to delete current file?\n\nWarning: Once deleted, the file cannot be recovered."),
-                                                       this->dialog_service->user_data);
-        }
+            resp = dialog_service_yes_no_dialog(FILE_DELETE_MSG);
 
 	    if( resp )
         {

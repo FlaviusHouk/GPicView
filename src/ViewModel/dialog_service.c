@@ -1,8 +1,9 @@
 #include "dialog_service.h"
 
-static GPtrArray* (*open_file_runner)(gchar* initial_folder, gpointer parent);
-static gchar* (*save_file_runner)(gchar* initial_folder, gchar** types, gpointer parent);
-static gboolean (*yes_no_dialog_runner)(gchar* msg, gpointer parent);
+static GPtrArray* (*open_file_runner)(const gchar* initial_folder, gpointer parent);
+static gchar* (*save_file_runner)(const gchar* initial_folder, gchar** types, gpointer parent);
+static gboolean (*yes_no_dialog_runner)(const gchar* msg, gpointer parent);
+static void (*msg_box_runner)(const gchar* msg, gpointer parent);
 static gpointer (*parent_resolver)();
 static GHashTable* dialogs;
 
@@ -13,21 +14,27 @@ dialog_service_init()
 }
 
 void
-dialog_service_register_open_file_dialog(GPtrArray* (*open_file)(gchar* initial_folder, gpointer parent))
+dialog_service_register_open_file_dialog(GPtrArray* (*open_file)(const gchar* initial_folder, gpointer parent))
 {
     open_file_runner = open_file;
 }
 
 void
-dialog_service_register_save_file_dialog(gchar* (*save_file)(gchar* initial_folder, gchar** types, gpointer parent))
+dialog_service_register_save_file_dialog(gchar* (*save_file)(const gchar* initial_folder, gchar** types, gpointer parent))
 {
     save_file_runner = save_file;
 }
 
 void 
-dialog_service_register_yes_no_dialog(gboolean (*yes_no_dialog)(gchar* msg, gpointer parent))
+dialog_service_register_yes_no_dialog(gboolean (*yes_no_dialog)(const gchar* msg, gpointer parent))
 {
     yes_no_dialog_runner = yes_no_dialog;
+}
+
+void
+dialog_service_register_message_box(void (*msg_box)(const gchar* msg, gpointer parent))
+{
+    msg_box_runner = msg_box;
 }
 
 void
@@ -52,21 +59,27 @@ dialog_service_register_parent_resolver(gpointer (*resolver)())
 }
 
 GPtrArray* 
-dialog_service_open_file (gchar* initial_folder)
+dialog_service_open_file (const gchar* initial_folder)
 {
     return open_file_runner(initial_folder, parent_resolver());
 }
 
 gchar* 
-dialog_service_save_file (gchar* initial_folder, gchar** types)
+dialog_service_save_file (const gchar* initial_folder, gchar** types)
 {
     return save_file_runner(initial_folder, types, parent_resolver());
 }
 
 gboolean 
-dialog_service_yes_no_dialog(gchar* msg)
+dialog_service_yes_no_dialog(const gchar* msg)
 {
     return yes_no_dialog_runner(msg, parent_resolver());
+}
+
+void
+dialog_service_show_message(const gchar* msg)
+{
+    msg_box_runner(msg, parent_resolver());
 }
 
 gboolean

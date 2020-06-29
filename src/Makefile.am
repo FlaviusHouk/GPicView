@@ -25,7 +25,8 @@ gpicview_SOURCES = \
 	Imaging/exif.c \
 	Imaging/jpgfile.c \
 	ViewModel/main-win-vm.c \
-	ViewModel/image-item.c
+	ViewModel/image-item.c \
+	ViewModel/dialog_service.c
 
 # the library search path.
 # use -nodefaultlibs to prevent linking libstdc++
@@ -44,7 +45,8 @@ noinst_HEADERS = \
 	pref.h \
 	Imaging/jhead.h \
 	ViewModel/main-win-vm.h \
-	ViewModel/image-item.h
+	ViewModel/image-item.h \
+	ViewModel/dialog_service.h
 
 noinst_PROGRAMS=xml-purge
 xml_purge_SOURCES=xml-purge.c

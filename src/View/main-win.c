@@ -25,6 +25,7 @@
 #include "main-win.h"
 
 #include "ViewModel/image-item.h"
+#include "ViewModel/dialog_service.h"
 
 #include "View/working-area.h"
 #include "View/file-dlgs.h"
@@ -178,46 +179,9 @@ main_win_vm_property_chagned(GObject* sender,
     }
 }
 
-static GPtrArray*
-open_file_dlg_request(gchar* initial_folder, gpointer user_data)
-{
-    GPtrArray* files = g_ptr_array_new();
-
-    g_ptr_array_add(files, get_open_filename(GTK_WINDOW(user_data), initial_folder));
-
-    return files;
-}
-
-static gchar*
-save_file_dlg_request(gchar* initial_folder, gchar** types, gpointer user_data)
-{
-    return get_save_filename(GTK_WINDOW(user_data), initial_folder, types);
-}
-
-static gboolean
-ask_yes_no_question(gchar* msg, gpointer user_data)
-{
-    GtkWidget* dlg = gtk_message_dialog_new( GTK_WINDOW(user_data),
-                GTK_DIALOG_MODAL,
-                GTK_MESSAGE_QUESTION,
-                GTK_BUTTONS_YES_NO,
-                msg);
-    
-    gboolean result = gtk_dialog_run( GTK_DIALOG(dlg) ) != GTK_RESPONSE_YES;
-       
-    gtk_widget_destroy( dlg );
-    return result;
-}
-
 void main_win_init( MainWin*mw )
 {
-    DialogService* dialog_service = g_malloc(sizeof(DialogService));
-    dialog_service->open_file = open_file_dlg_request;
-    dialog_service->save_file = save_file_dlg_request;
-    dialog_service->yes_no_dialog = ask_yes_no_question;
-    dialog_service->user_data = mw;
-
-    mw->view_model = view_models_main_win_vm_new(dialog_service);
+    mw->view_model = view_models_main_win_vm_new();
     g_signal_connect(mw->view_model, "notify", G_CALLBACK(main_win_vm_property_chagned), mw);
 
     gtk_window_set_title( (GtkWindow*)mw, _("Image Viewer"));
@@ -488,17 +452,6 @@ void main_win_start_slideshow( MainWin* mw )
     on_slideshow_menu(NULL, mw);
 }
 
-void main_win_show_error( MainWin* mw, const char* message )
-{
-    GtkWidget* dlg = gtk_message_dialog_new( (GtkWindow*)mw,
-                                              GTK_DIALOG_MODAL,
-                                              GTK_MESSAGE_ERROR,
-                                              GTK_BUTTONS_OK,
-                                              "%s", message );
-    gtk_dialog_run( (GtkDialog*)dlg );
-    gtk_widget_destroy( dlg );
-}
-
 void on_size_allocate( GtkWidget* widget, GtkAllocation    *allocation )
 {
     GTK_WIDGET_CLASS(main_win_parent_class)->size_allocate( widget, allocation );
@@ -748,7 +701,10 @@ void on_save_as( GtkWidget* btn, MainWin* mw )
     view_models_main_win_vm_save_as(mw->view_model, &error);
 
     if (error != NULL)
-        main_win_show_error(mw, error->message);
+    {
+        dialog_service_show_message (error->message);
+        g_error_free(error);
+    }
 }
 
 void on_save( GtkWidget* btn, MainWin* mw )
@@ -759,7 +715,10 @@ void on_save( GtkWidget* btn, MainWin* mw )
     view_models_main_win_vm_save(mw->view_model, &error);
 
     if (error != NULL)
-        main_win_show_error(mw, error->message);
+    {
+        dialog_service_show_message (error->message);
+        g_error_free(error);
+    }
 }
 
 void on_open( GtkWidget* btn, MainWin* mw )
@@ -771,7 +730,7 @@ void on_open( GtkWidget* btn, MainWin* mw )
 
     if(error != NULL)
     {
-        main_win_show_error(mw, error->message);
+        dialog_service_show_message (error->message);
         g_error_free(error);
         return;
     }
@@ -1129,7 +1088,8 @@ gboolean main_win_save( MainWin* mw, const char* file_path, const char* type, gb
 
     if( ! result )
     {
-        main_win_show_error( mw, error->message );
+        dialog_service_show_message( error->message );
+        g_error_free(error);
         return FALSE;
     }
 }
@@ -1140,7 +1100,10 @@ void on_delete( GtkWidget* btn, MainWin* mw )
     cancel_slideshow(mw);
 
     if(!view_models_main_win_vm_delete(mw->view_model, &error))
-        main_win_show_error( mw, error->message );
+    {
+        dialog_service_show_message( error->message );
+        g_error_free(error);
+    }
 }
 
 void on_toggle_toolbar( GtkMenuItem* item, MainWin* mw )
@@ -1277,7 +1240,7 @@ void on_drag_data_received( GtkWidget* widget, GdkDragContext *drag_context,
 
         if(error != NULL)
         {
-            main_win_show_error(mw, error->message);
+            dialog_service_show_message(error->message);
             g_error_free(error);
             return;
         }

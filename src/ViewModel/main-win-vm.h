@@ -8,14 +8,6 @@
 
 G_BEGIN_DECLS
 
-typedef struct _DialogService
-{
-    GPtrArray* (*open_file)(gchar* initial_folder, gpointer user_data);
-    gchar* (*save_file)(gchar* initial_folder, gchar** types, gpointer user_data);
-    gboolean (*yes_no_dialog)(gchar* msg, gpointer user_data);
-    gpointer user_data;
-} DialogService; 
-
 enum
 {
     CURRENT_ITEM_PROP = 1,
@@ -29,7 +21,7 @@ enum
 G_DECLARE_FINAL_TYPE(ViewModelsMainWinVM, view_models_main_win_vm, VIEW_MODELS, MAIN_WIN_VM, GObject)
 
 ViewModelsMainWinVM*
-view_models_main_win_vm_new(DialogService* dialog_service);
+view_models_main_win_vm_new();
 
 ViewModelsImageItem*
 view_models_main_win_vm_get_current_item(ViewModelsMainWinVM* this);
