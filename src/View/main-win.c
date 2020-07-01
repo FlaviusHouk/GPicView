@@ -57,7 +57,7 @@ static void main_win_finalize( GObject* obj );
 static void create_nav_bar( MainWin* mw, GtkWidget* box);
 
 static void 
-add_nav_btn_img( MainWin* mw, GtkButton* but, GCallback cb, gboolean toggle);
+attach_signal( MainWin* mw, GtkButton* but, GCallback cb, gboolean toggle);
 // GtkWidget* add_menu_item(  GtkMenuShell* menu, const char* label, const char* icon, GCallback cb, gboolean toggle=FALSE );
 static void rotate_image( MainWin* mw );
 static void show_popup_menu( MainWin* mw, GdkEventButton* evt );
@@ -280,52 +280,125 @@ void main_win_init( MainWin*mw )
     g_signal_connect( mw, "drag-data-received", G_CALLBACK(on_drag_data_received), mw );
 }
 
+static gboolean 
+pointer_to_bool_converter(GBinding     *binding,
+                          const GValue *from_value,
+                          GValue       *to_value,
+                          gpointer      user_data)
+{
+    gpointer item = g_value_get_pointer(from_value);
+    
+    g_value_set_boolean(to_value, item != NULL);
+    return TRUE;
+}
+
 void create_nav_bar( MainWin* mw, GtkWidget* box )
 {
     GtkBuilder* builder = gtk_builder_new_from_file (PACKAGE_DATA_DIR "/gpicview/ui/nav_bar.ui");
     mw->nav_bar = GTK_WIDGET(gtk_builder_get_object(builder, "nav_bar"));
+    GObject* current;
 
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "go_prev_butt")), G_CALLBACK(on_prev), FALSE );
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "go_next_butt")), G_CALLBACK(on_next), FALSE );
+    attach_signal( mw, GTK_BUTTON(gtk_builder_get_object(builder, "go_prev_butt")), G_CALLBACK(on_prev), FALSE );
+    attach_signal( mw, GTK_BUTTON(gtk_builder_get_object(builder, "go_next_butt")), G_CALLBACK(on_next), FALSE );
 
     mw->btn_play_stop = GTK_WIDGET(gtk_builder_get_object(builder, "slideshow_butt"));
-    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_play_stop), G_CALLBACK(on_slideshow), TRUE );
+    attach_signal( mw, GTK_BUTTON(mw->btn_play_stop), G_CALLBACK(on_slideshow), TRUE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                mw->btn_play_stop, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
 
     mw->img_play_stop = GTK_WIDGET(gtk_builder_get_object(builder, "start_stop_img"));
 
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "zoom_out_butt")), G_CALLBACK(on_zoom_out), FALSE );
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "zoom_in_butt")), G_CALLBACK(on_zoom_in), FALSE );
+    current = gtk_builder_get_object(builder, "zoom_out_butt");
+    attach_signal( mw, GTK_BUTTON(current), G_CALLBACK(on_zoom_out), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                current, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
+    
+    current = gtk_builder_get_object(builder, "zoom_in_butt");
+    attach_signal( mw, GTK_BUTTON(current), G_CALLBACK(on_zoom_in), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                current, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
     
 //    g_signal_connect( percent, "activate", G_CALLBACK(on_percentage), mw );
 //    gtk_widget_set_size_request( percent, 45, -1 );
 //    gtk_box_pack_start( (GtkBox*)nav_bar, percent, FALSE, FALSE, 2 );
 
     mw->btn_fit = GTK_WIDGET(gtk_builder_get_object(builder, "zoom_fit_best_butt"));
-    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_fit), G_CALLBACK(on_zoom_fit), TRUE );
+    attach_signal( mw, GTK_BUTTON(mw->btn_fit), G_CALLBACK(on_zoom_fit), TRUE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                mw->btn_fit, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
 
     mw->btn_orig = GTK_WIDGET(gtk_builder_get_object(builder, "zoom_orig_butt"));
-    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_orig), G_CALLBACK(on_orig_size), TRUE );
+    attach_signal( mw, GTK_BUTTON(mw->btn_orig), G_CALLBACK(on_orig_size), TRUE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                mw->btn_orig, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
 
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "fullscreen_butt")), G_CALLBACK(on_full_screen), FALSE );
+    attach_signal( mw, GTK_BUTTON(gtk_builder_get_object(builder, "fullscreen_butt")), G_CALLBACK(on_full_screen), FALSE );
 
     mw->btn_rotate_ccw = GTK_WIDGET(gtk_builder_get_object(builder, "rotate_left_butt"));
-    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_rotate_ccw), G_CALLBACK(on_rotate_counterclockwise), FALSE );
+    attach_signal( mw, GTK_BUTTON(mw->btn_rotate_ccw), G_CALLBACK(on_rotate_counterclockwise), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                mw->btn_rotate_ccw, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
 
     mw->btn_rotate_cw = GTK_WIDGET(gtk_builder_get_object(builder, "rotate_right_butt"));
-    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_rotate_cw), G_CALLBACK(on_rotate_clockwise), FALSE );
+    attach_signal( mw, GTK_BUTTON(mw->btn_rotate_cw), G_CALLBACK(on_rotate_clockwise), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                mw->btn_rotate_cw, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
 
     mw->btn_flip_h = GTK_WIDGET(gtk_builder_get_object(builder, "horr_flip_butt"));
-    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_flip_h), G_CALLBACK(on_flip_horizontal), FALSE );
+    attach_signal( mw, GTK_BUTTON(mw->btn_flip_h), G_CALLBACK(on_flip_horizontal), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                mw->btn_flip_h, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
+
     mw->btn_flip_v = GTK_WIDGET(gtk_builder_get_object(builder, "vert_flip_butt"));
-    add_nav_btn_img( mw, GTK_BUTTON(mw->btn_flip_v), G_CALLBACK(on_flip_vertical), FALSE );
+    attach_signal( mw, GTK_BUTTON(mw->btn_flip_v), G_CALLBACK(on_flip_vertical), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                mw->btn_flip_v, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
 
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "open_butt")), G_CALLBACK(on_open), FALSE );
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "save_butt")), G_CALLBACK(on_save), FALSE );
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "save_as_butt")), G_CALLBACK(on_save_as), FALSE );
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "delete_butt")), G_CALLBACK(on_delete), FALSE );
+    attach_signal( mw, GTK_BUTTON(gtk_builder_get_object(builder, "open_butt")), G_CALLBACK(on_open), FALSE );
 
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "pref_butt")), G_CALLBACK(on_preference), FALSE );
-    add_nav_btn_img( mw, GTK_BUTTON(gtk_builder_get_object(builder, "exit_butt")), G_CALLBACK(on_quit), FALSE );
+    current = gtk_builder_get_object(builder, "save_butt");
+    attach_signal( mw, GTK_BUTTON(current), G_CALLBACK(on_save), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                current, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
+
+    current = gtk_builder_get_object(builder, "save_as_butt");
+    attach_signal( mw, GTK_BUTTON(current), G_CALLBACK(on_save_as), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                current, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
+
+    current = gtk_builder_get_object(builder, "delete_butt");
+    attach_signal( mw, GTK_BUTTON(current), G_CALLBACK(on_delete), FALSE );
+    g_object_bind_property_full(mw->view_model, CURRENT_ITEM_PROP_NAME,
+                                current, "sensitive",
+                                G_BINDING_DEFAULT, pointer_to_bool_converter,
+                                NULL, NULL, NULL);
+
+    attach_signal( mw, GTK_BUTTON(gtk_builder_get_object(builder, "pref_butt")), G_CALLBACK(on_preference), FALSE );
+    attach_signal( mw, GTK_BUTTON(gtk_builder_get_object(builder, "exit_butt")), G_CALLBACK(on_quit), FALSE );
+
+    g_object_notify(G_OBJECT(mw->view_model), CURRENT_ITEM_PROP_NAME);
 
     GtkWidget* holder = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_name(holder, "NavBarParent");
@@ -334,6 +407,8 @@ void create_nav_bar( MainWin* mw, GtkWidget* box )
     gtk_box_set_homogeneous(GTK_BOX(holder), TRUE);
 
     gtk_box_pack_start( GTK_BOX(box), holder, FALSE, TRUE, 0 );
+
+    g_object_unref(G_OBJECT(builder));
 }
 
 gboolean on_delete_event( GtkWidget* widget, GdkEventAny* evt )
@@ -549,7 +624,7 @@ void main_win_fit_window_size(  MainWin* mw, gboolean can_strech, GdkInterpType 
 }
 
 static void
-add_nav_btn_img(MainWin* mw, GtkButton* btn, GCallback cb, gboolean toggle )
+attach_signal(MainWin* mw, GtkButton* btn, GCallback cb, gboolean toggle )
 {
     if( G_UNLIKELY(toggle) )
         g_signal_connect( btn, "toggled", cb, mw );

@@ -95,7 +95,7 @@ CLASS_PREFIX(class_init)(ViewModelsMainWinVMClass* class)
 static void
 CLASS_PREFIX(init)(ViewModelsMainWinVM* this)
 {
-
+    this->current_item = NULL;
 }
 
 void
