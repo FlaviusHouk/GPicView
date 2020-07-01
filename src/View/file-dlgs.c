@@ -45,12 +45,12 @@ static void on_update_preview( GtkFileChooser *chooser, GtkImage* img )
     }
 }
 
-GPtrArray* get_open_filename( const gchar* cwd, GtkWindow* parent )
+GPtrArray* get_open_filename( const gchar* cwd, gpointer parent )
 {
     gchar* file = NULL;
     GtkFileChooser* dlg = 
         GTK_FILE_CHOOSER(gtk_file_chooser_dialog_new ( NULL, 
-                                                       parent,
+                                                       GTK_WINDOW(parent),
                                                        GTK_FILE_CHOOSER_ACTION_OPEN, 
                                                        CANCEL_TEXT,
                                                        GTK_RESPONSE_CANCEL,
@@ -155,12 +155,12 @@ static void on_file_save_filter_changed(GObject* obj, GParamSpec* pspec, gpointe
     }
 }
 
-char* get_save_filename( const gchar* cwd, gchar** type, GtkWindow* parent )
+char* get_save_filename( const gchar* cwd, gchar** type, gpointer parent )
 {
     char* file = NULL;
     GtkFileChooser* dlg = 
         GTK_FILE_CHOOSER(gtk_file_chooser_dialog_new( NULL, 
-                                                      parent,
+                                                      GTK_WINDOW(parent),
                                                       GTK_FILE_CHOOSER_ACTION_SAVE, 
                                                       CANCEL_TEXT,
                                                       GTK_RESPONSE_CANCEL, 

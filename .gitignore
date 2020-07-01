@@ -61,3 +61,5 @@ build/*
 **.in
 configure
 aclocal.m4
+m4/**
+**~

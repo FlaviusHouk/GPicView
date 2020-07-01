@@ -48,7 +48,7 @@ static GOptionEntry opt_entries[] =
 
 #define PIXMAP_DIR        PACKAGE_DATA_DIR "/gpicview/pixmaps/"
 
-static GtkWindow*
+static gpointer
 gpicview_get_active_window()
 {
     return gtk_application_get_active_window(app);
