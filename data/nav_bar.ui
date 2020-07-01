@@ -326,7 +326,7 @@
         <property name="can_focus">True</property>
         <property name="focus_on_click">False</property>
         <property name="receives_default">True</property>
-        <property name="tooltip_text" translatable="yes">Open File"</property>
+        <property name="tooltip_text" translatable="yes">Open File</property>
         <property name="relief">none</property>
         <child>
           <object class="GtkImage">
