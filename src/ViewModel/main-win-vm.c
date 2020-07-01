@@ -136,6 +136,9 @@ CLASS_PREFIX(open)(ViewModelsMainWinVM* this, GError** error)
 
     GPtrArray* files = dialog_service_open_file(image_list_get_dir(this->image_list));
 
+    if(files->len != 1)
+        return FALSE;
+
     //TODO: add multiple items.
     gchar* file_path = g_ptr_array_index(files, 0);
 

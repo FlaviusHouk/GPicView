@@ -47,7 +47,7 @@ static void on_update_preview( GtkFileChooser *chooser, GtkImage* img )
 
 GPtrArray* get_open_filename( const gchar* cwd, GtkWindow* parent )
 {
-    char* file = NULL;
+    gchar* file = NULL;
     GtkFileChooser* dlg = 
         GTK_FILE_CHOOSER(gtk_file_chooser_dialog_new ( NULL, 
                                                        parent,
@@ -84,7 +84,8 @@ GPtrArray* get_open_filename( const gchar* cwd, GtkWindow* parent )
 
     GPtrArray* result = g_ptr_array_new();
 
-    g_ptr_array_add(result, file);
+    if(file != NULL)
+        g_ptr_array_add(result, file);
 
     return result;
 }
